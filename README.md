@@ -74,6 +74,7 @@ Once installed, configure the plugin as follows:
 
      * Use only if you post on behalf of a **LinkedIn Company Page**.
      * If left empty, LinkedIn’s **default behavior** applies (user profile or default context).
+     * LinkedIn Docs https://www.linkedin.com/help/linkedin/answer/a415420/associate-your-linkedin-company-id-with-the-linkedin-job-board-faqs.
    * **Enable AI** (`enableai`) — *global toggle*.
 
      * Turn on to show the **Generate text for LinkedIn** button on the certificate page. If off, the panel won’t offer the suggested text.
