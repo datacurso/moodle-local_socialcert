@@ -10,7 +10,7 @@ A Moodle plugin that adds an **“Add certificate to LinkedIn”** button to **C
 
 * **LinkedIn Add-to-profile** button on each issued certificate (from *Custom certificate*).
 * **Provider AI** integration (another Buen Data plugin) to **suggest LinkedIn post copy**.
-* Public verification link (`verify.php?code=...`) included automatically.
+* Public verification link (`verify_certificate.php?code=...`) included automatically.
 * Complies with Moodle’s privacy API; **no additional personal data** is stored.
 * Languages: English (default), Spanish, German, French, Portuguese, Indonesian, and Russian.
 
