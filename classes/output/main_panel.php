@@ -90,7 +90,7 @@ class main_panel implements renderable, templatable {
             $certname  = format_string($customcert->name, true, ['context' => $context]);
             $issuedts  = (int) $issue->timecreated;
             $certid    = $issue->code;
-            $verifyurl = (new moodle_url('/mod/customcert/verify.php', ['code' => $issue->code]))->out(false);
+            $verifyurl = (new moodle_url('/mod/customcert/verify_certificate.php', ['code' => $issue->code]))->out(false);
 
             $shareurl = \local_socialcert\output\linkedin_helper::build_linkedin_url(
                 certname: $certname,
