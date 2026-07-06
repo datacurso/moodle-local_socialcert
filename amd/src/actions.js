@@ -308,6 +308,11 @@ function ai_response (certname, course, org, socialmedia, errorarray, cmid) {
         const parsed = JSON.parse(response.json);
         return resolve({fulltext: parsed.reply, done: true});
       } else {
+        // The provider already returns a clear, localized message (with retry time) for the rate
+        // limit, so show it as-is instead of the generic fallback.
+        if (response.errorcode === 'error_ratelimit_exceeded' && response.message) {
+          return resolve({fulltext: response.message, done: false});
+        }
         const errormsg = mapErrorToLangKey(response.message, errorarray);
         return resolve({fulltext: errormsg, done: false});
       }

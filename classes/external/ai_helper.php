@@ -106,10 +106,16 @@ class ai_helper extends external_api {
             return ['json' => $json];
         } catch (\Exception $e) {
             debugging("Unexpected error while starting resource generation (stream): " . $e->getMessage());
-            return [
+            $result = [
                 'ok' => false,
                 'message' => $e->getMessage(),
             ];
+            // Expose the provider's exception code so the UI can show the real (localized) message
+            // for known cases such as the rate limit, instead of a generic fallback.
+            if ($e instanceof \moodle_exception) {
+                $result['errorcode'] = $e->errorcode;
+            }
+            return $result;
         }
     }
 
@@ -125,6 +131,7 @@ class ai_helper extends external_api {
         return new external_single_structure([
             'ok' => new external_value(PARAM_BOOL, 'Response status from server', VALUE_OPTIONAL),
             'message' => new external_value(PARAM_RAW, 'Response message from server', VALUE_OPTIONAL),
+            'errorcode' => new external_value(PARAM_ALPHANUMEXT, 'Moodle exception errorcode when the request failed', VALUE_OPTIONAL),
             'json' => new external_value(PARAM_RAW, 'Respuesta JSON de la API externa', VALUE_OPTIONAL),
         ]);
     }
