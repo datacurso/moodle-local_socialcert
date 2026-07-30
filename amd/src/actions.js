@@ -33,6 +33,15 @@
  * Notes:
  * - This module is loaded via $PAGE->requires->js_call_amd('local_socialcert/actions', 'init').
  * - The HTML is rendered by the Mustache template and provides the data-* hooks.
+ *
+ * Security model for the AI card output:
+ * - Remote content (the AI service reply and any provider supplied message) is ALWAYS inserted
+ *   as text nodes. It never reaches innerHTML, so markup in it cannot create elements and cannot
+ *   register event handlers.
+ * - Plugin owned messages (the credits / license / generic lang strings, which legitimately carry
+ *   a link to the Datacurso shop) travel through a separate rendering path that rebuilds the DOM
+ *   from an allowlist: text nodes plus <a> elements with an http(s) href. Nothing else survives.
+ * - The two paths are selected by the ORIGIN of the string, never by sniffing its content.
  */
 
 import {get_string as getString} from 'core/str';
@@ -76,6 +85,69 @@ function on(root, selector, type, handler) {
 }
 
 /* ============================================================================
+ * Button labels (localised)
+ * ==========================================================================*/
+
+/**
+ * Monotonic token per button, used to discard stale asynchronous label updates.
+ * @type {WeakMap<HTMLElement, number>}
+ */
+const labelTokens = new WeakMap();
+
+/**
+ * Bumps and returns the label token of a button.
+ *
+ * @param {HTMLElement} btn Button being relabelled.
+ * @returns {number} The new token value.
+ */
+function nextLabelToken(btn) {
+  const token = (labelTokens.get(btn) || 0) + 1;
+  labelTokens.set(btn, token);
+  return token;
+}
+
+/**
+ * Replaces a button label with a localised local_socialcert string.
+ *
+ * get_string() returns a promise, so it must be awaited: assigning the promise itself to
+ * textContent would print "[object Promise]". A token guard discards a late resolution when a
+ * newer label change was requested in the meantime.
+ *
+ * @param {HTMLElement} btn Button whose label must be replaced.
+ * @param {string} key Lang string key inside the local_socialcert component.
+ * @returns {Promise<void>} Resolves once the label has been applied or discarded.
+ */
+async function setButtonLabel(btn, key) {
+  const token = nextLabelToken(btn);
+  let label;
+
+  try {
+    label = await getString(key, 'local_socialcert');
+  } catch (e) {
+    // Keep the current label when the string cannot be fetched.
+    return;
+  }
+
+  if (labelTokens.get(btn) !== token) {
+    return;
+  }
+
+  btn.textContent = label;
+}
+
+/**
+ * Restores a previously captured plain text label, cancelling any pending async label update.
+ *
+ * @param {HTMLElement} btn Button whose label must be restored.
+ * @param {string} label Label captured before the asynchronous work started.
+ * @returns {void}
+ */
+function restoreButtonLabel(btn, label) {
+  nextLabelToken(btn);
+  btn.textContent = label;
+}
+
+/* ============================================================================
  * Handlers: open link / copy to clipboard
  * ==========================================================================*/
 
@@ -99,6 +171,44 @@ function handleOpenLink(ev, el) {
   }
 
   setTimeout(() => el.removeAttribute('aria-busy'), 300);
+}
+
+/**
+ * Selector of the copy button rendered by the Mustache template.
+ * @type {string}
+ */
+const COPY_BUTTON_SELECTOR = '[data-action="copy-html"]';
+
+/**
+ * Character used as the transient "copied" confirmation mark.
+ * @type {string}
+ */
+const COPY_CONFIRMATION_MARK = '✔';
+
+/**
+ * Shows a transient confirmation mark inside the copy button and then restores its
+ * original children (the icon markup) untouched.
+ *
+ * The previous implementation stored innerHTML and restored it through textContent, which
+ * would have printed the raw SVG source. Detaching and re-attaching the real nodes keeps the
+ * icon intact and avoids any HTML string round-trip.
+ *
+ * @param {HTMLElement} btn Copy button to decorate.
+ * @param {number} [delayMs] How long the confirmation stays visible, in milliseconds.
+ * @returns {void}
+ */
+function showCopyConfirmation(btn, delayMs) {
+  const originalChildren = document.createDocumentFragment();
+  while (btn.firstChild) {
+    originalChildren.appendChild(btn.firstChild);
+  }
+
+  btn.textContent = COPY_CONFIRMATION_MARK;
+
+  setTimeout(() => {
+    btn.textContent = '';
+    btn.appendChild(originalChildren);
+  }, delayMs || 1200);
 }
 
 /**
@@ -130,16 +240,20 @@ async function handleCopyHtml(_ev, el) {
   navigator.clipboard.writeText(content)
     .then(() => {
 
-      const btn = el.querySelector('[data-action="copy-html"]');
+      // The delegated element IS the copy button, so looking for a descendant never matched it.
+      const btn = el.matches(COPY_BUTTON_SELECTOR)
+        ? el
+        : el.querySelector(COPY_BUTTON_SELECTOR);
 
-      if (!btn) {return;}
+      if (!btn) {
+ return;
+}
 
-      const originalHTML = btn.innerHTML;
-      btn.textContent = '✔';
-      setTimeout(() => { btn.textContent = originalHTML; }, 1200);
+      showCopyConfirmation(btn);
+      return;
     })
     .catch(() => {
-
+      // Clipboard permission denied or unavailable: nothing to report to the user.
     });
 }
 
@@ -170,7 +284,9 @@ function addCaret(el) {
  */
 function removeCaret(el) {
   const caret = el.querySelector('.lsc-caret');
-  if (caret) { caret.remove(); }
+  if (caret) {
+ caret.remove();
+}
 }
 
 
@@ -212,33 +328,146 @@ function mapErrorToLangKey(message, errors) {
  */
 const streams = new WeakMap();
 
+/* ============================================================================
+ * Safe rendering of plugin owned messages
+ * ==========================================================================*/
+
+/**
+ * URL protocols accepted for links rendered from plugin owned messages.
+ * @type {string[]}
+ */
+const ALLOWED_LINK_PROTOCOLS = ['http:', 'https:'];
+
+/**
+ * Elements whose whole subtree is discarded while rebuilding a plugin owned message.
+ * Their text content is intentionally NOT preserved.
+ * @type {string[]}
+ */
+const DISCARDED_ELEMENTS = ['SCRIPT', 'STYLE', 'TEMPLATE', 'IFRAME', 'OBJECT', 'EMBED', 'NOSCRIPT'];
+
+/**
+ * Builds a brand new anchor for a link found in a plugin owned message.
+ *
+ * Only the href is carried over, and only when it resolves to an http(s) URL. Every other
+ * attribute of the parsed anchor (including any event handler) is dropped, because the returned
+ * element is created from scratch instead of being imported from the parsed tree.
+ *
+ * @param {Element} source Anchor element coming from the inert parsed document.
+ * @returns {HTMLElement} A new <a> element, or a plain <span> when the href is not allowed.
+ */
+function buildSafeAnchor(source) {
+  const href = source.getAttribute('href') || '';
+  let url = null;
+
+  try {
+    url = new URL(href, window.location.href);
+  } catch (e) {
+    url = null;
+  }
+
+  if (!url || ALLOWED_LINK_PROTOCOLS.indexOf(url.protocol) === -1) {
+    return document.createElement('span');
+  }
+
+  const anchor = document.createElement('a');
+  anchor.setAttribute('href', url.href);
+  anchor.setAttribute('target', '_blank');
+  anchor.setAttribute('rel', 'noopener noreferrer');
+
+  return anchor;
+}
+
+/**
+ * Copies an inert node tree into a live destination keeping only an allowlist of nodes.
+ *
+ * Text nodes are recreated with document.createTextNode(). Anchors are recreated by
+ * {@link buildSafeAnchor}. Any other element is skipped and only its textual content is kept,
+ * except for the elements listed in {@link DISCARDED_ELEMENTS}, which are dropped entirely.
+ * No node from the parsed document is ever adopted into the live document.
+ *
+ * @param {Node} source Node belonging to the inert parsed document.
+ * @param {Node} destination Live node (element or fragment) receiving the rebuilt copy.
+ * @returns {void}
+ */
+function appendAllowedNodes(source, destination) {
+  Array.prototype.forEach.call(source.childNodes, (child) => {
+    if (child.nodeType === Node.TEXT_NODE) {
+      destination.appendChild(document.createTextNode(child.nodeValue));
+      return;
+    }
+
+    if (child.nodeType !== Node.ELEMENT_NODE) {
+      return;
+    }
+
+    const tag = String(child.tagName || '').toUpperCase();
+
+    if (DISCARDED_ELEMENTS.indexOf(tag) !== -1) {
+      return;
+    }
+
+    if (tag === 'A' && child.namespaceURI === 'http://www.w3.org/1999/xhtml') {
+      const anchor = buildSafeAnchor(child);
+      appendAllowedNodes(child, anchor);
+      destination.appendChild(anchor);
+      return;
+    }
+
+    if (tag === 'BR') {
+      destination.appendChild(document.createElement('br'));
+      return;
+    }
+
+    // Unknown element: keep its readable content, throw the element away.
+    appendAllowedNodes(child, destination);
+  });
+}
+
+/**
+ * Renders a plugin owned message (a local_socialcert lang string) into an element.
+ *
+ * This path exists so the credits and license errors keep their clickable link to the shop.
+ * It MUST only ever receive strings produced by this plugin; remote content goes through
+ * {@link typewriter}, which is text only.
+ *
+ * The message is parsed with DOMParser into an inert document (no browsing context, so no
+ * script runs and no resource is fetched there) and then rebuilt node by node from the
+ * allowlist, so the live DOM only receives nodes created by this module.
+ *
+ * @param {HTMLElement} el Target element that receives the message.
+ * @param {string} message Plugin owned message, possibly containing a single <a> link.
+ * @returns {void}
+ */
+function renderPluginMessage(el, message) {
+  const parsed = new DOMParser().parseFromString(String(message || ''), 'text/html');
+  const fragment = document.createDocumentFragment();
+
+  appendAllowedNodes(parsed.body, fragment);
+
+  el.textContent = '';
+  el.appendChild(fragment);
+}
+
 /**
  * Streams text into an element in "char" or "word" units with a configurable delay.
  *
+ * The text is always inserted as TEXT, never as HTML: every unit is appended with
+ * insertAdjacentText(), so markup contained in the value is displayed literally and can never
+ * create elements nor register event handlers. This is the only path used for remote content.
+ *
  * @param {HTMLElement} el   Target element to receive the text.
- * @param {string} text      Full text to stream.
+ * @param {string} text      Full text to stream. Treated as untrusted plain text.
  * @param {'char'|'word'} mode Unit size used while streaming.
  * @param {number} speedMs   Interval between units (ms).
  * @returns {{stop: Function, done: Promise<void>}} Control handle with a stop() method and a completion promise.
  */
 export function typewriter(el, text, mode, speedMs) {
-  const isHTML = /<[^>]+>/.test(text); // ← detección simple
-
-  // Rama HTML: render directo para que <a> sea clickeable
-  if (isHTML) {
-    el.innerHTML = text;
-    return {
-      stop() { /* nada que parar */ },
-      done: Promise.resolve()
-    };
-  }
-
-  // Rama TEXTO: tu implementación original
+  const source = (text === null || text === undefined) ? '' : String(text);
   const caret = addCaret(el);
-  const units = mode === 'char' ? text.split('') : text.split(/\s+/);
+  const units = mode === 'char' ? source.split('') : source.split(/\s+/);
   let i = 0;
   let stopped = false;
-  el.innerHTML = '';
+  el.textContent = '';
   el.appendChild(caret);
 
   const done = new Promise((resolve) => {
@@ -258,10 +487,16 @@ export function typewriter(el, text, mode, speedMs) {
       const chunk = units[i++];
       caret.insertAdjacentText('beforebegin', mode === 'word' ? (chunk + ' ') : chunk);
     }, Math.max(10, speedMs || 30));
-    streams.set(el, { stop: () => { stopped = true; } });
+    streams.set(el, {stop: () => {
+ stopped = true;
+}});
   });
 
-  return { stop() { const s = streams.get(el); if (s) { s.stop(); streams.delete(el); } }, done };
+  return {stop() {
+ const s = streams.get(el); if (s) {
+ s.stop(); streams.delete(el);
+}
+}, done};
 }
 
 /* ============================================================================
@@ -280,7 +515,9 @@ export function typewriter(el, text, mode, speedMs) {
  * @param {string} socialmedia Target social network (e.g., "LinkedIn").
  * @param {string[]} errorarray - Array of lang keys in the order:
  * @param {number} cmid - Course module ID.
- * @returns {Promise<string>} Resolves to the AI textual reply.
+ * @returns {Promise<{fulltext: string, done: boolean, plugintext: boolean}>} Resolves to the text to display,
+ *   whether the generation succeeded, and whether the text is a plugin owned message (plugintext) or
+ *   remote content that must be rendered as plain text.
  * @throws {SyntaxError} If the backend JSON is invalid.
  * @throws {Error} If the AJAX call fails (also reported via Notification.exception).
  *
@@ -289,7 +526,7 @@ export function typewriter(el, text, mode, speedMs) {
  *   .then(reply => console.log("AI reply:", reply))
  *   .catch(err => console.error("AI error:", err));
  */
-function ai_response (certname, course, org, socialmedia, errorarray, cmid) {
+function ai_response(certname, course, org, socialmedia, errorarray, cmid) {
 
   return new Promise((resolve) => {
     Ajax.call([{
@@ -306,18 +543,21 @@ function ai_response (certname, course, org, socialmedia, errorarray, cmid) {
     }])[0].then((response) => {
       if (response.json) {
         const parsed = JSON.parse(response.json);
-        return resolve({fulltext: parsed.reply, done: true});
+        // Remote content: rendered as plain text only.
+        return resolve({fulltext: parsed.reply, done: true, plugintext: false});
       } else {
         // The provider already returns a clear, localized message (with retry time) for the rate
-        // limit, so show it as-is instead of the generic fallback.
+        // limit, so show it as-is instead of the generic fallback. It still comes from the remote
+        // provider, so it is rendered as plain text.
         if (response.errorcode === 'error_ratelimit_exceeded' && response.message) {
-          return resolve({fulltext: response.message, done: false});
+          return resolve({fulltext: response.message, done: false, plugintext: false});
         }
+        // Plugin owned lang string (credits / license / generic): may contain the shop link.
         const errormsg = mapErrorToLangKey(response.message, errorarray);
-        return resolve({fulltext: errormsg, done: false});
+        return resolve({fulltext: errormsg, done: false, plugintext: true});
       }
     }).catch(() => {
-      return resolve({ fulltext: errorarray[2], done: false });
+      return resolve({fulltext: errorarray[2], done: false, plugintext: true});
     });
   });
 }
@@ -335,7 +575,7 @@ function ai_response (certname, course, org, socialmedia, errorarray, cmid) {
  *
  * Also manages a loader, ARIA states, and reveals the Copy button when done.
  *
-* @param {number} cmid
+ * @param {number} cmid
  * @returns {(ev: MouseEvent, btn: HTMLElement) => void}
  */
 export function runAiHandler(cmid) {
@@ -349,13 +589,17 @@ export function runAiHandler(cmid) {
       const wrap = btn.closest('.lsc-response-wrap');
       target = wrap ? wrap.querySelector('.lsc-response') : null;
     }
-    if (!target) { return; }
+    if (!target) {
+ return;
+}
 
     if (streams.has(target)) {
       const s = streams.get(target);
-      if (s && s.stop) { s.stop(); }
+      if (s && s.stop) {
+ s.stop();
+}
       btn.disabled = false;
-      btn.textContent = getString('airesponsebtn', 'local_socialcert');
+      setButtonLabel(btn, 'airesponsebtn');
       return;
     }
 
@@ -365,10 +609,10 @@ export function runAiHandler(cmid) {
     const course = btn.dataset.course || '';
     const org = btn.dataset.org || '';
     const socialmedia = btn.dataset.socialmedia || '';
-    // const id_servicio = btn.dataset.id_servicio || '';
+    // Const id_servicio = btn.dataset.id_servicio || '';
     const original = btn.textContent;
     btn.disabled = true;
-    btn.textContent = 'Generating';
+    setButtonLabel(btn, 'generating');
     target.setAttribute('aria-busy', 'true');
     target.setAttribute('role', 'status');
 
@@ -383,23 +627,45 @@ export function runAiHandler(cmid) {
       errorGeneric
     ];
     let streamtext = '';
+    // True only when the text to display is a lang string owned by this plugin.
+    let plugintext = false;
 
-    copyBtn.hidden=true;
+    copyBtn.hidden = true;
 
     ai_response(certname, course, org, socialmedia, errorarray, cmid).then((response) => {
       streamtext = response.fulltext;
-      if(response.done) { copyBtn.hidden=false; }
+      plugintext = response.plugintext === true;
+      if (response.done) {
+ copyBtn.hidden = false;
+}
+      return;
     }).catch(() => {
       streamtext = errorGeneric;
+      plugintext = true;
     }).finally(() => {
       loader.classList.add('hidden');
       loader.setAttribute('aria-busy', 'false');
+
+      if (plugintext) {
+        // Plugin owned message: rebuilt from the allowlist so its shop link stays clickable.
+        renderPluginMessage(target, streamtext);
+        btn.disabled = false;
+        restoreButtonLabel(btn, original);
+        target.removeAttribute('aria-busy');
+        streams.delete(target);
+        return;
+      }
+
+      // Remote content: streamed as plain text, never as HTML.
       const stream = typewriter(target, streamtext, mode, speed);
       stream.done.then(() => {
         btn.disabled = false;
-        btn.textContent = original;
+        restoreButtonLabel(btn, original);
         target.removeAttribute('aria-busy');
         streams.delete(target);
+        return;
+      }).catch(() => {
+        // The completion promise never rejects; nothing to recover from.
       });
     });
   };
@@ -417,7 +683,9 @@ export function runAiHandler(cmid) {
  * @param {(ev: Event, el: HTMLElement) => void} fn
  * @returns {void}
  */
-export function register(name, fn) { registry.set(name, fn); }
+export function register(name, fn) {
+ registry.set(name, fn);
+}
 
 /**
  * Entry point: registers base actions and sets up click delegation.

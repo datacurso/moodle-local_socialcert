@@ -177,17 +177,31 @@ final class hook_callbacks_test extends \advanced_testcase {
      * MDL-INT-008: browsing site pages without an associated course module produces no
      * debugging notices originating from the plugin.
      *
-     * [Pendiente:skip] hook_callbacks::before_footer_html_generation() reads $PAGE->cm->id
-     * before validating the page type, so every page without a course module triggers a notice
-     * while developer debugging is on. Exercising it here would surface as a PHP error rather
-     * than a plugin assertion, and the case is documented as pending in the definition.
+     * Previously skipped: before_footer_html_generation() dereferenced $PAGE->cm->id before
+     * validating the page type, so every page without a course module emitted a notice while
+     * developer debugging was on. The callback now validates the page type first, so the case is
+     * implemented and asserts the silent behaviour on a page with no course module.
      */
     public function test_no_debugging_notices_are_emitted_on_pages_without_a_course_module(): void {
-        $this->markTestSkipped(
-            'before_footer_html_generation() dereferences $PAGE->cm->id before checking the page ' .
-            'type, so any page without a course module emits a notice with developer debugging ' .
-            'enabled. Pending fix in the plugin.'
-        );
+        global $CFG, $PAGE;
+        $this->resetAfterTest();
+
+        set_debugging(DEBUG_DEVELOPER);
+        $this->assertTrue((bool) $CFG->debugdeveloper, 'Developer debugging is the precondition of the case.');
+
+        $this->setUser($this->getDataGenerator()->create_user());
+
+        // A site page with no course module associated, such as the user dashboard.
+        $PAGE->set_context(\context_system::instance());
+        $PAGE->set_url('/my/index.php');
+        $PAGE->set_pagetype('my-index');
+
+        $hook = new before_footer_html_generation($PAGE->get_renderer('core'));
+
+        hook_callbacks::before_footer_html_generation($hook);
+
+        $this->assertSame('', $hook->get_output(), 'No panel may be injected on a page without a module.');
+        $this->assertDebuggingNotCalled();
     }
 
     /**

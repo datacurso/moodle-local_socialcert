@@ -27,6 +27,10 @@
     --lsc-400: #f5c2c7;
     --lsc-500: #b71c1c;
 
+    --lsc-warn-300: #fff8e1;
+    --lsc-warn-400: #ffe0a3;
+    --lsc-warn-500: #7a4b00;
+
     --bd-avatar-bg: #e9e5de;
     --bd-avatar-head: #7c8fa2;
     --bd-avatar-bust: #a6bed0;
@@ -164,6 +168,15 @@
     color: var(--lsc-500);
     background-color: var(--lsc-300);
     border: 1px solid var(--lsc-400);
+    padding: 10px 14px;
+    border-radius: 6px;
+    margin-top: 10px;
+    font-size: 0.95rem;
+}
+.local-socialcert .lsc-warning-message {
+    color: var(--lsc-warn-500);
+    background-color: var(--lsc-warn-300);
+    border: 1px solid var(--lsc-warn-400);
     padding: 10px 14px;
     border-radius: 6px;
     margin-top: 10px;

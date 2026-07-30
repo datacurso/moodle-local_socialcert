@@ -292,9 +292,9 @@ final class main_panel_test extends \advanced_testcase {
      * MDL-INT-016: with an empty LinkedIn organization ID setting the share action must be
      * disabled, exactly as the setting help text promises.
      *
-     * [Pendiente:fail] The builder falls back to the generic organization ID '1337', so the
-     * credential would be published attributed to a third party organization. This test
-     * asserts the correct behaviour and MUST fail until the fallback is removed.
+     * The builder used to fall back to the generic organization ID '1337', so the credential was
+     * published attributed to a third party organization. The fallback is gone: without the
+     * setting there is no URL and the panel renders its disabled state.
      */
     public function test_share_action_is_disabled_when_the_organization_id_is_not_configured(): void {
         $this->resetAfterTest();

@@ -47,6 +47,7 @@
         "org": "Buen Data",
         "shareurl": "https://linkedin.com/profile/add?name=AI%20Fundamentals",
         "verifyurl": "https://example.com/verify/ABC123XYZ",
+        "verifywarning": "Certificate verification is disabled, so the published link will not be verifiable.",
 
         "ai_actioncall": "Genera un texto con IA para tu publicación",
         "aibuttonlabel": "Redactar con IA",
@@ -93,6 +94,11 @@
         {{certerror}}
       </div>
     {{/issued}}
+    {{#verifywarning}}
+      <div class="lsc-warning-message" role="status">
+        {{verifywarning}}
+      </div>
+    {{/verifywarning}}
     <div class="lsc-live" aria-live="polite" aria-atomic="true"></div>
   </section>
 

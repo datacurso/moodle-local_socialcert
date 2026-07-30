@@ -85,13 +85,18 @@ class main_panel implements renderable, templatable {
         $verifyurl = '';
         $shareurl = null;
         $datanetwork = '';
+        $verifywarning = '';
 
-        if ($customcert && $issue) {
+        $hasissue = (bool) ($customcert && $issue);
+
+        if ($hasissue) {
             $certname  = format_string($customcert->name, true, ['context' => $context]);
             $issuedts  = (int) $issue->timecreated;
             $certid    = $issue->code;
             $verifyurl = (new moodle_url('/mod/customcert/verify_certificate.php', ['code' => $issue->code]))->out(false);
 
+            // The share URL is only built when the LinkedIn organization ID is configured, so the
+            // credential is never published attributed to a foreign organization.
             $shareurl = \local_socialcert\output\linkedin_helper::build_linkedin_url(
                 certname: $certname,
                 issueunixtime: $issuedts,
@@ -99,13 +104,24 @@ class main_panel implements renderable, templatable {
                 certid: $certid ?: ''
             );
 
-            $datanetwork = 'linkedin';
+            if ($shareurl !== null) {
+                $datanetwork = 'linkedin';
+
+                if (!self::is_publicly_verifiable($customcert)) {
+                    $verifywarning = get_string('verifywarning', 'local_socialcert');
+                }
+            }
         }
 
-        $issued = $issue ? false : true;
+        // The template uses this flag to render the disabled state, so it is true when the panel
+        // cannot offer the share action: no issue of the session user, or no organization ID.
+        $issued = $shareurl === null;
 
         $orgname  = get_config('local_socialcert', 'organizationname');
-        $enableai = (bool)((int) get_config('local_socialcert', 'enableai'));
+
+        // The AI assistant demands an issued certificate, exactly like the share button, so no
+        // generation can be requested (and no credits spent) without a certificate.
+        $enableai = $hasissue && (bool) ((int) get_config('local_socialcert', 'enableai'));
 
         $coursefullname = format_string($course->fullname, true, ['context' => context_course::instance($course->id)]);
         $displayname    = format_string(fullname($USER), true, ['context' => $context]);
@@ -140,6 +156,7 @@ class main_panel implements renderable, templatable {
             'org'               => $orgname,
             'shareurl'          => $shareurl,
             'verifyurl'         => $verifyurl,
+            'verifywarning'     => $verifywarning,
             'ai_actioncall'     => get_string('ai_actioncall', 'local_socialcert'),
             'buttonlabel'       => get_string('linkcertbuttontext', 'local_socialcert'),
             'buttonlabelshare'  => get_string('buttonlabelshare', 'local_socialcert'),
@@ -152,5 +169,23 @@ class main_panel implements renderable, templatable {
             'whatsharelabel'    => get_string('whatsharelabel', 'local_socialcert'),
             'certerror'         => get_string('certerror', 'local_socialcert'),
         ];
+    }
+
+    /**
+     * Whether an anonymous visitor can verify the credential through the site verification page.
+     *
+     * The link published on LinkedIn points at /mod/customcert/verify_certificate.php, which only
+     * answers a visitor without a session when the site wide setting customcert/verifyallcertificates
+     * is enabled and the activity allows anyone to verify its certificates.
+     *
+     * @param \stdClass $customcert Custom certificate instance record.
+     * @return bool True when the published link is verifiable by third parties.
+     */
+    private static function is_publicly_verifiable(\stdClass $customcert): bool {
+        if (empty(get_config('customcert', 'verifyallcertificates'))) {
+            return false;
+        }
+
+        return !empty($customcert->verifyany);
     }
 }

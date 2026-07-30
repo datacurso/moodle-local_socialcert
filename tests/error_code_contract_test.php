@@ -48,17 +48,27 @@ final class error_code_contract_test extends \externallib_advanced_testcase {
     /**
      * MDL-CTR-002: a provider error code that is not strictly alphanumeric reaches the panel intact.
      *
-     * [Pendiente:skip] The return structure declares the error code as alphanumeric text, so real
-     * provider codes containing spaces do not survive the response cleaning and the panel falls back
-     * to the generic message. Skipped until the declared parameter type accepts the real codes.
+     * Previously skipped: the return structure declared the error code as PARAM_ALPHANUMEXT, so the
+     * real provider codes containing spaces did not survive the response cleaning. The declared type
+     * is now PARAM_TEXT, so the case is implemented and asserts the real code arrives untouched.
      */
     public function test_provider_error_code_with_spaces_reaches_the_panel(): void {
         $this->resetAfterTest();
 
-        $this->markTestSkipped(
-            'The error code is declared as alphanumeric text while real provider codes contain spaces, '
-            . 'so cleaning the response drops the code and the panel loses the specific message.'
-        );
+        // Literal code thrown by aiprovider_datacurso when the client cannot be built.
+        $errorcode = 'API baseurl or licensekey not configured';
+
+        $cleaned = external_api::clean_returnvalue(ai_helper::execute_returns(), [
+            'ok' => false,
+            'message' => 'error/API baseurl or licensekey not configured',
+            'errorcode' => $errorcode,
+        ]);
+
+        $this->assertArrayHasKey('errorcode', $cleaned, 'The provider error code must survive the cleaning.');
+        $this->assertSame($errorcode, $cleaned['errorcode']);
+
+        // The panel classifies the failure by that code, so it must still be recognisable.
+        $this->assertStringContainsString('licensekey', $cleaned['errorcode']);
     }
 
     /**

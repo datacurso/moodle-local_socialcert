@@ -27,11 +27,12 @@ defined('MOODLE_INTERNAL') || die();
 /**
  * Tests for the plugin privacy declaration.
  *
- * Both cases in this file are flagged [Pendiente:fail] in the test definition, so they assert the
- * CORRECT expected behaviour and are expected to fail until the plugin is fixed. The current
- * classes/privacy/provider.php declares the namespace of a different plugin (local_whatsapp), so
- * \local_socialcert\privacy\provider cannot be autoloaded and the platform sees the plugin as
- * having no privacy declaration at all.
+ * Both cases in this file were flagged [Pendiente:fail] in the test definition, so they assert the
+ * CORRECT expected behaviour: classes/privacy/provider.php used to declare the namespace of a
+ * different plugin (local_whatsapp), so \local_socialcert\privacy\provider could not be autoloaded
+ * and the platform saw the plugin as having no privacy declaration at all. The provider now lives
+ * in the plugin namespace and declares both the null provider (it stores no personal data locally)
+ * and the metadata provider with one external location per third party destination.
  *
  * @package    local_socialcert
  * @category   test
@@ -47,8 +48,11 @@ final class privacy_provider_test extends \advanced_testcase {
     /**
      * MDL-INT-011: The plugin ships a privacy provider under its own namespace.
      *
-     * [Pendiente:fail] classes/privacy/provider.php declares namespace local_whatsapp\privacy,
-     * so the class cannot be autoloaded for this component.
+     * The null_provider assertion is kept: the plugin owns no table and no user preference, so the
+     * declaration "stores no personal data" is accurate and is what makes the platform report the
+     * component as compliant without request providers. The external transmissions are declared
+     * through the metadata provider, which the plugin implements as well and which is asserted by
+     * the MDL-INT-012 cases below.
      */
     public function test_plugin_declares_a_privacy_provider(): void {
         $this->assertTrue(
@@ -73,9 +77,6 @@ final class privacy_provider_test extends \advanced_testcase {
 
     /**
      * MDL-INT-011: The platform recognises the declaration in the site privacy registry.
-     *
-     * [Pendiente:fail] \core_privacy\manager cannot find the provider class, so the plugin is
-     * listed as non compliant and without any privacy reason.
      */
     public function test_privacy_declaration_is_recognised_by_the_platform(): void {
         $manager = new manager();
@@ -93,9 +94,6 @@ final class privacy_provider_test extends \advanced_testcase {
 
     /**
      * MDL-INT-012: The metadata declares the data sent to the Datacurso AI service.
-     *
-     * [Pendiente:fail] The plugin sends the certificate name, course, organization, user id and
-     * site data to a third party service but declares no external transmission at all.
      */
     public function test_metadata_declares_the_transmission_to_the_ai_service(): void {
         $collection = $this->get_metadata_collection();
@@ -127,8 +125,6 @@ final class privacy_provider_test extends \advanced_testcase {
 
     /**
      * MDL-INT-012: The metadata declares the credential data sent to LinkedIn.
-     *
-     * [Pendiente:fail] Sharing pushes the credential to LinkedIn but nothing is declared.
      */
     public function test_metadata_declares_the_transmission_to_linkedin(): void {
         $collection = $this->get_metadata_collection();

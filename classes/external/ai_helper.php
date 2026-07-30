@@ -74,15 +74,21 @@ class ai_helper extends external_api {
     /**
      * Executes the external API request to generate AI certificate content.
      *
-     * Validates input parameters, sends a POST request to the external AI service,
-     * and returns the response JSON as a string. If the response is not an array
-     * or object, it is wrapped into a JSON object with a "text" key.
+     * Validates input parameters, revalidates the business rules that govern the AI assistant,
+     * sends a POST request to the external AI service, and returns the response JSON as a string.
+     * If the response is not an array or object, it is wrapped into a JSON object with a
+     * "text" key.
+     *
+     * The business rules are revalidated here, and not only in the panel, because hiding the AI
+     * card in the interface does not stop a direct call to the web service from spending credits.
      *
      * @param array $body The body data containing certificate information.
      * @param array $cmid The body data containing certificate information.
      * @return array An associative array with a 'json' key holding the API response.
      */
     public static function execute($body, $cmid) {
+        global $DB, $USER;
+
         $params = self::validate_parameters(self::execute_parameters(), ['body' => $body, 'cmid' => $cmid]);
 
         try {
@@ -92,6 +98,23 @@ class ai_helper extends external_api {
             $context = \context_module::instance($params['cmid']);
             self::validate_context($context);
             require_capability('mod/customcert:view', $context);
+
+            if (!((int) get_config('local_socialcert', 'enableai'))) {
+                throw new \moodle_exception('aidisabled', 'local_socialcert');
+            }
+
+            $cm = get_coursemodule_from_id('', $params['cmid'], 0, false, MUST_EXIST);
+            if ($cm->modname !== 'customcert') {
+                throw new \moodle_exception('notacertificateactivity', 'local_socialcert');
+            }
+
+            $hasissue = $DB->record_exists('customcert_issues', [
+                'customcertid' => $cm->instance,
+                'userid'       => $USER->id,
+            ]);
+            if (!$hasissue) {
+                throw new \moodle_exception('nocertificateissued', 'local_socialcert');
+            }
 
             $body   = $params['body'];
 
@@ -131,7 +154,10 @@ class ai_helper extends external_api {
         return new external_single_structure([
             'ok' => new external_value(PARAM_BOOL, 'Response status from server', VALUE_OPTIONAL),
             'message' => new external_value(PARAM_RAW, 'Response message from server', VALUE_OPTIONAL),
-            'errorcode' => new external_value(PARAM_ALPHANUMEXT, 'Moodle exception errorcode when the request failed', VALUE_OPTIONAL),
+            // PARAM_TEXT and not PARAM_ALPHANUMEXT: real provider codes contain spaces (for
+            // instance 'API baseurl or licensekey not configured'), and the stricter type dropped
+            // them while cleaning the response, so the panel lost the specific message.
+            'errorcode' => new external_value(PARAM_TEXT, 'Moodle exception errorcode when the request failed', VALUE_OPTIONAL),
             'json' => new external_value(PARAM_RAW, 'Respuesta JSON de la API externa', VALUE_OPTIONAL),
         ]);
     }

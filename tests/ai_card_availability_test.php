@@ -52,9 +52,9 @@ final class ai_card_availability_test extends \advanced_testcase {
      * MDL-E2E-004: a user without an issued certificate must not get the AI assistant, so no
      * generation can be requested and no credits can be consumed.
      *
-     * [Pendiente:fail] export_for_template() derives 'enableai' from the global setting alone and
-     * ignores the issue, so the card is offered and operative without a certificate. This test
-     * asserts the correct behaviour and MUST fail until the issue is required.
+     * export_for_template() used to derive 'enableai' from the global setting alone, ignoring the
+     * issue, so the card was offered and operative without a certificate. It now requires both the
+     * global setting and the issue of the session user.
      */
     public function test_ai_assistant_is_not_available_without_an_issued_certificate(): void {
         $this->resetAfterTest();

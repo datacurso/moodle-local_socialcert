@@ -353,11 +353,9 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
     /**
      * MDL-INT-010: With AI globally disabled the request is rejected without contacting the service.
      *
-     * [Pendiente:fail] The plugin never reads local_socialcert/enableai in the external function, so
-     * the call reaches the HTTP client. The AI provider is left without a license key, so the
-     * failure today is the provider refusing to build (a transport concern) instead of a business
-     * rejection, which is exactly what this assertion rules out. This test MUST FAIL until the
-     * revalidation is implemented.
+     * The plugin never read local_socialcert/enableai in the external function, so the call reached
+     * the HTTP client and the failure came from the unconfigured provider (a transport concern)
+     * instead of a business rule. The setting is now revalidated before the client is built.
      */
     public function test_request_is_rejected_when_ai_is_globally_disabled(): void {
         $this->resetAfterTest();
@@ -377,8 +375,8 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
     /**
      * MDL-INT-010: A user without an issued certificate is rejected without consuming credits.
      *
-     * [Pendiente:fail] The external function never checks customcert_issues, so credits can be
-     * spent by a user who owns no certificate. This test MUST FAIL until the check is added.
+     * The external function never checked customcert_issues, so credits could be spent by a user
+     * who owned no certificate. The issue of the session user is now required.
      */
     public function test_request_is_rejected_when_user_has_no_issued_certificate(): void {
         $this->resetAfterTest();
@@ -397,9 +395,9 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
     /**
      * MDL-INT-010: A course module that is not a custom certificate is rejected.
      *
-     * [Pendiente:fail] The function only requires mod/customcert:view, a capability every enrolled
-     * student holds in any module context of the course, so any course module id is accepted.
-     * This test MUST FAIL until the module type is revalidated.
+     * The function only required mod/customcert:view, a capability every enrolled student holds in
+     * any module context of the course, so any course module id was accepted. The module type is
+     * now revalidated before the client is built.
      */
     public function test_request_is_rejected_for_a_module_that_is_not_a_custom_certificate(): void {
         $this->resetAfterTest();
@@ -468,6 +466,11 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
 
     /**
      * MDL-CTR-001: The return contract keeps the success and failure shapes consumed by the panel.
+     *
+     * The expected type of 'errorcode' was updated from PARAM_ALPHANUMEXT to PARAM_TEXT together
+     * with the MDL-CTR-002 fix: real provider codes contain spaces, so the stricter type dropped
+     * them while cleaning the response. The assertion pinned the defect, not the contract, so it
+     * now pins the type that lets the code reach the panel intact.
      */
     public function test_return_contract_declares_the_documented_output(): void {
         $returns = ai_helper::execute_returns();
@@ -480,7 +483,7 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
         $expectedtypes = [
             'ok' => PARAM_BOOL,
             'message' => PARAM_RAW,
-            'errorcode' => PARAM_ALPHANUMEXT,
+            'errorcode' => PARAM_TEXT,
             'json' => PARAM_RAW,
         ];
         foreach ($expectedtypes as $key => $type) {

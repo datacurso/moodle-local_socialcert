@@ -83,16 +83,19 @@ class hook_callbacks {
     ): void {
         global $PAGE, $OUTPUT;
 
-        $cmid  = $PAGE->cm->id;
-
+        // The page type is validated before touching $PAGE->cm: reading the course module first
+        // dereferences a null object on every page of the site that has no module associated,
+        // which emits a debugging notice everywhere while developer debugging is enabled.
         if (
             $PAGE->pagetype !== 'mod-customcert-view' ||
-            empty($cmid) ||
+            empty($PAGE->cm->id) ||
             !isloggedin() ||
             isguestuser()
         ) {
             return;
         }
+
+        $cmid = (int) $PAGE->cm->id;
 
         $panel = new \local_socialcert\output\main_panel(cmid: $cmid);
         $context = $panel->export_for_template(output: $OUTPUT);
