@@ -32,4 +32,11 @@ $functions = [
         'type'        => 'read',
         'ajax'        => true,
     ],
+    'local_socialcert_get_share_state' => [
+        'classname'   => 'local_socialcert\\external\\share_state',
+        'methodname'  => 'execute',
+        'description' => 'Get the state of the share panel for the user in session.',
+        'type'        => 'read',
+        'ajax'        => true,
+    ],
 ];

@@ -142,6 +142,72 @@ final class ai_card_availability_test extends \advanced_testcase {
     }
 
     /**
+     * MDL-E2E-004: the subcontext shared with the state web service carries no certificate data
+     * while there is no issue, so a card rendered with it could never request a generation.
+     *
+     * The card lives in its own template (local_socialcert/ai_card) so the browser can add it as
+     * soon as the certificate is issued. That template is rendered with this subcontext, so the
+     * check that the assistant cannot be used without a certificate has to hold here too.
+     */
+    public function test_shared_assistant_context_carries_no_certificate_data_without_an_issue(): void {
+        global $USER;
+
+        $this->resetAfterTest();
+
+        set_config('organizationid', '12345', 'local_socialcert');
+        set_config('enableai', 1, 'local_socialcert');
+
+        $scenario = $this->create_certificate_scenario();
+        $this->setUser($scenario->student);
+
+        $cmid = (int) $scenario->customcert->cmid;
+        $state = main_panel::get_share_state($cmid, (int) $USER->id);
+        $aicard = main_panel::get_ai_card_context($cmid, $state);
+
+        $this->assertFalse($state['enableai'], 'The assistant must stay unavailable without an issue.');
+        $this->assertSame('', $aicard['certname'], 'There is no certificate to write a post about.');
+        $this->assertSame('', $aicard['shareurl'], 'There is no credential link to publish.');
+    }
+
+    /**
+     * MDL-E2E-004: the panel and the state web service share one single assistant subcontext.
+     *
+     * The card is rendered by the server through local_socialcert/main and by the browser through
+     * core/templates, both with this subcontext, so the two renderings can never disagree on the
+     * data of the assistant. The export keeps the keys flat because a Mustache partial inherits the
+     * context of the template that includes it.
+     */
+    public function test_exported_panel_carries_the_shared_assistant_context(): void {
+        global $USER;
+
+        $this->resetAfterTest();
+
+        set_config('organizationid', '12345', 'local_socialcert');
+        set_config('enableai', 1, 'local_socialcert');
+
+        $scenario = $this->create_certificate_scenario();
+        $this->setUser($scenario->student);
+        certificate::issue_certificate($scenario->customcert->id, $scenario->student->id);
+
+        $cmid = (int) $scenario->customcert->cmid;
+        $state = main_panel::get_share_state($cmid, (int) $USER->id);
+        $aicard = main_panel::get_ai_card_context($cmid, $state);
+        $data = $this->export_panel($cmid);
+
+        $this->assertTrue($data['enableai']);
+        foreach ($aicard as $key => $value) {
+            $this->assertArrayHasKey($key, $data, "The panel must export the assistant key '{$key}'.");
+        }
+
+        // The share URL is the only key the panel exports in its own shape: the template needs to
+        // tell a missing URL apart to render the disabled state, so it keeps the nullable value.
+        $this->assertSame($state['shareurl'], $data['shareurl']);
+        $this->assertSame($aicard['certname'], $data['certname']);
+        $this->assertSame($aicard['course'], $data['course']);
+        $this->assertSame($aicard['author_name'], $data['author_name']);
+    }
+
+    /**
      * Creates a course with a customcert activity and an enrolled student.
      *
      * @return \stdClass Object with the course, customcert and student records.

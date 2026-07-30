@@ -33,6 +33,11 @@
  * Notes:
  * - This module is loaded via $PAGE->requires->js_call_amd('local_socialcert/actions', 'init').
  * - The HTML is rendered by the Mustache template and provides the data-* hooks.
+ * - The assistant card is the local_socialcert/ai_card template. When the state web service
+ *   reports the assistant as newly available, this module renders that very same template through
+ *   core/templates, so the markup of the card has a single source of truth and is never rebuilt
+ *   here. Everything else (opening the card included) is delegated on the panel root, so it works
+ *   the same for the card rendered by the server and for the card added afterwards.
  *
  * Security model for the AI card output:
  * - Remote content (the AI service reply and any provider supplied message) is ALWAYS inserted
@@ -46,6 +51,7 @@
 
 import {get_string as getString} from 'core/str';
 import Ajax from 'core/ajax';
+import Templates from 'core/templates';
 
 /* ============================================================================
  * Action registry
@@ -673,6 +679,327 @@ export function runAiHandler(cmid) {
 
 
 /* ============================================================================
+ * AI assistant card
+ * ==========================================================================*/
+
+/**
+ * Selector of the button that starts a generation, rendered by the card template.
+ * @type {string}
+ */
+const AI_TRIGGER_SELECTOR = '[data-action="run-ai"]';
+
+/**
+ * Selector of the assistant card, used to know whether it already exists in the panel.
+ * @type {string}
+ */
+const AI_CARD_SELECTOR = '[data-ai-composer]';
+
+/**
+ * Name of the template that owns the markup of the assistant card.
+ * @type {string}
+ */
+const AI_CARD_TEMPLATE = 'local_socialcert/ai_card';
+
+/**
+ * Expands the assistant card the first time its button is pressed.
+ *
+ * This used to be an inline script inside the Mustache template, which bound a listener to the
+ * button found at DOMContentLoaded and therefore never reached a card added to the page later.
+ * Reacting to the delegated click on the panel root makes the behaviour identical for the card
+ * rendered by the server and for the one rendered in the browser, and keeps the template free of
+ * inline JavaScript as Moodle requires.
+ *
+ * The open state itself is the guard against opening twice: the card is only ever expanded, so a
+ * bar already carrying the is-open class has nothing left to do.
+ *
+ * @param {HTMLElement} button Assistant button that was pressed.
+ * @returns {void}
+ */
+function expandAiComposer(button) {
+  const bar = button.closest('.ai-bar');
+  if (!bar || bar.classList.contains('is-open')) {
+    return;
+  }
+
+  const panel = bar.querySelector('.ai-bar__panel');
+  if (!panel) {
+    return;
+  }
+
+  bar.classList.add('is-open');
+
+  // The panel grows from a height of 0, so the transition needs an explicit target height. Once
+  // it is over the height becomes automatic, so the generated text can make the card grow.
+  panel.style.height = panel.scrollHeight + 'px';
+  panel.addEventListener('transitionend', () => {
+    panel.style.height = 'auto';
+    panel.removeAttribute('aria-hidden');
+  }, {once: true});
+
+  bar.scrollIntoView({behavior: 'smooth', block: 'start'});
+}
+
+/**
+ * Adds the assistant card to the panel once the web service reports the assistant as available.
+ *
+ * The card is rendered from its own template with the context the server returns, so no markup is
+ * duplicated here and no server value is ever assigned as HTML by this module.
+ *
+ * Nothing is rendered while the state does not report the assistant as available: the card may
+ * never be offered without an issued certificate, and the generation is revalidated server side
+ * anyway by local_socialcert_get_ai_response.
+ *
+ * @param {HTMLElement} root Panel root element.
+ * @param {{enableai: boolean, aicard: Object}} state State reported by the web service.
+ * @returns {Promise<void>} Resolves once the card has been added or discarded.
+ */
+async function renderAiCard(root, state) {
+  if (state.enableai !== true || !state.aicard || root.querySelector(AI_CARD_SELECTOR)) {
+    return;
+  }
+
+  let rendered = null;
+
+  try {
+    rendered = await Templates.renderForPromise(AI_CARD_TEMPLATE, state.aicard);
+  } catch (e) {
+    // The panel keeps working without the assistant; the next return to the page retries.
+    return;
+  }
+
+  // The rendering is asynchronous, so the card could have been added in the meantime.
+  if (root.querySelector(AI_CARD_SELECTOR)) {
+    return;
+  }
+
+  Templates.appendNodeContents(root, rendered.html, rendered.js);
+}
+
+/* ============================================================================
+ * Share panel state refresh
+ * ==========================================================================*/
+
+/**
+ * Selector of the share call to action rendered by the Mustache template.
+ * @type {string}
+ */
+const SHARE_BUTTON_SELECTOR = '.lsc-cta';
+
+/**
+ * Minimum delay between two state requests, in milliseconds.
+ *
+ * pageshow and visibilitychange can fire back to back for a single return to the page, so the
+ * interval collapses them into one request.
+ * @type {number}
+ */
+const REFRESH_MIN_INTERVAL_MS = 1000;
+
+/**
+ * True while a state request is in flight, so no second request is issued in parallel.
+ * @type {boolean}
+ */
+let refreshing = false;
+
+/**
+ * Timestamp (ms) of the last state request issued by this module.
+ * @type {number}
+ */
+let lastRefresh = 0;
+
+/**
+ * Whether the share button is currently rendered in its disabled state.
+ *
+ * @param {HTMLElement} button Share call to action.
+ * @returns {boolean} True when the button cannot open the LinkedIn form.
+ */
+function isShareDisabled(button) {
+  return button.classList.contains('disabled');
+}
+
+/**
+ * Writes a localised message in the live region of the panel.
+ *
+ * The region already exists in the template, so screen readers announce the change of state
+ * without moving the focus.
+ *
+ * @param {HTMLElement} root Panel root element.
+ * @param {string} key Lang string key inside the local_socialcert component.
+ * @returns {Promise<void>} Resolves once the message has been written or discarded.
+ */
+async function announce(root, key) {
+  const live = root.querySelector('.lsc-live');
+  if (!live) {
+    return;
+  }
+
+  try {
+    live.textContent = await getString(key, 'local_socialcert');
+  } catch (e) {
+    // Nothing to announce when the string cannot be fetched.
+  }
+}
+
+/**
+ * Turns the disabled panel into the enabled one using the state reported by the web service.
+ *
+ * Every value coming from the server is applied as an attribute or as text, never as HTML, so a
+ * value can neither create elements nor register event handlers.
+ *
+ * @param {HTMLElement} root Panel root element.
+ * @param {HTMLElement} button Share call to action.
+ * @param {{shareurl: string, network: string, verifywarning: string}} state State reported by the web service.
+ * @returns {void}
+ */
+function enableSharePanel(root, button, state) {
+  button.setAttribute('href', state.shareurl);
+  button.setAttribute('target', '_blank');
+  button.setAttribute('rel', 'noopener noreferrer');
+  button.classList.remove('disabled');
+  button.removeAttribute('aria-disabled');
+  button.removeAttribute('tabindex');
+
+  // The social network attribute is what gives the button the palette of the network.
+  if (state.network) {
+    root.setAttribute('data-network', state.network);
+  }
+
+  const error = root.querySelector('.lsc-error-message');
+  if (error) {
+    error.remove();
+  }
+
+  showVerifyWarning(root, state.verifywarning);
+}
+
+/**
+ * Renders the verification warning of the enabled panel, when the server reports one.
+ *
+ * The message is a lang string of the plugin and is inserted as text, exactly where the template
+ * renders it on the server: right before the live region of the panel.
+ *
+ * @param {HTMLElement} root Panel root element.
+ * @param {string} message Warning reported by the web service, empty when there is nothing to warn.
+ * @returns {void}
+ */
+function showVerifyWarning(root, message) {
+  if (!message || root.querySelector('.lsc-warning-message')) {
+    return;
+  }
+
+  const live = root.querySelector('.lsc-live');
+  if (!live || !live.parentNode) {
+    return;
+  }
+
+  const warning = document.createElement('div');
+  warning.className = 'lsc-warning-message';
+  warning.setAttribute('role', 'status');
+  warning.textContent = message;
+
+  live.parentNode.insertBefore(warning, live);
+}
+
+/**
+ * Re-reads the state of the panel and enables it once the certificate has been issued.
+ *
+ * mod_customcert only records the issue when the certificate is downloaded, and the panel was
+ * rendered before that happened, so the page restored from the browser cache still shows the
+ * disabled button. Asking the server again is the only way to know without a manual reload.
+ *
+ * The assistant card is added in the same pass: it demands the very same issue, so it is missing
+ * from the restored HTML for exactly the same reason, and the state reports the context needed to
+ * render its template.
+ *
+ * @param {HTMLElement} root Panel root element.
+ * @param {number} cmid Course module ID of the certificate activity.
+ * @returns {Promise<void>} Resolves once the state has been applied or discarded.
+ */
+async function refreshShareState(root, cmid) {
+  const button = root.querySelector(SHARE_BUTTON_SELECTOR);
+
+  // Nothing to refresh while the panel is already enabled, and never two requests at once.
+  if (!button || !isShareDisabled(button) || refreshing) {
+    return;
+  }
+
+  if ((Date.now() - lastRefresh) < REFRESH_MIN_INTERVAL_MS) {
+    return;
+  }
+
+  refreshing = true;
+  lastRefresh = Date.now();
+
+  let state = null;
+
+  try {
+    state = await Ajax.call([{
+      methodname: 'local_socialcert_get_share_state',
+      args: {cmid: cmid},
+    }])[0];
+  } catch (e) {
+    // The panel keeps the disabled state the server rendered; the next return to the page retries.
+    return;
+  } finally {
+    refreshing = false;
+  }
+
+  if (!state) {
+    return;
+  }
+
+  // The assistant only depends on the issue and on the global setting, so its card is added even
+  // when the share action itself must stay disabled because no organization ID is configured.
+  await renderAiCard(root, state);
+
+  // An empty share URL means the panel must stay disabled: either there is still no issue or the
+  // LinkedIn organization ID is not configured, and no share link may be invented in the browser.
+  if (state.hasissue !== true || !state.shareurl) {
+    return;
+  }
+
+  if (!isShareDisabled(button)) {
+    return;
+  }
+
+  enableSharePanel(root, button, state);
+  await announce(root, 'sharenowavailable');
+}
+
+/**
+ * Listens for the moments where the panel can have become stale and refreshes it.
+ *
+ * - pageshow covers the return from the certificate PDF, including the restoration from the
+ *   back/forward cache, where the browser reuses the HTML rendered before the issue existed.
+ * - visibilitychange covers the forced download delivery, where the user never navigates and the
+ *   tab simply becomes visible again.
+ *
+ * @param {HTMLElement} root Panel root element.
+ * @param {number} cmid Course module ID of the certificate activity.
+ * @returns {void}
+ */
+function watchShareState(root, cmid) {
+  window.addEventListener('pageshow', (event) => {
+    // A page restored from the back/forward cache is HTML produced before the issue existed, so
+    // its state is always checked: the interval of a previous check must not discard it. A normal
+    // load is checked too, but only while the panel is disabled, which refreshShareState() guards.
+    if (event.persisted) {
+      lastRefresh = 0;
+    }
+
+    refreshShareState(root, cmid);
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      refreshShareState(root, cmid);
+    }
+  });
+
+  // The module can be initialised after the load event, so the first check is done here too.
+  refreshShareState(root, cmid);
+}
+
+/* ============================================================================
  * Public API
  * ==========================================================================*/
 
@@ -688,9 +1015,9 @@ export function register(name, fn) {
 }
 
 /**
- * Entry point: registers base actions and sets up click delegation.
+ * Entry point: registers base actions, sets up click delegation and watches the panel state.
  * Called once when the AMD module is loaded.
- * @param {Object} cmid Initialization options.
+ * @param {number} cmid Course module ID of the certificate activity the panel belongs to.
  * @returns {void}
  */
 export function init(cmid) {
@@ -703,6 +1030,10 @@ export function init(cmid) {
   register('copy-html', handleCopyHtml);
   register('run-ai', runAiHandler(cmid));
 
+  // The card is expanded before the generation starts, exactly as the inline script of the
+  // template did, and through delegation so a card added later behaves the same way.
+  on(root, AI_TRIGGER_SELECTOR, 'click', (ev, el) => expandAiComposer(el));
+
   on(root, '[data-action]', 'click', (ev, el) => {
     const action = el.dataset.action;
     const fn = registry.get(action);
@@ -710,4 +1041,11 @@ export function init(cmid) {
       fn(ev, el);
     }
   });
+
+  // Watched last, so the delegated listeners are already in place for a card that the very first
+  // state check could add to the panel.
+  const activityid = Number(cmid) || Number(root.dataset.cmid || 0);
+  if (activityid > 0) {
+    watchShareState(root, activityid);
+  }
 }

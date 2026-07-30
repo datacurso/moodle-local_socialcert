@@ -4,10 +4,11 @@ Feature: Share an issued certificate on LinkedIn from the certificate activity p
   As a student with an issued certificate
   I need the share panel to expose a prefilled LinkedIn add-to-profile link
 
-  # Scenarios tagged @skip_pending describe behaviour required by the test case definition
-  # that the plugin does not implement yet ([Pendiente:skip] in socialcert-1.1.2.md). Their
-  # steps are deliberately commented out so no scenario can ever report a known defect as
-  # correct behaviour. Exclude them explicitly when running the suite:
+  # Scenarios tagged @skip_pending describe behaviour that cannot be asserted in this
+  # environment: either the plugin does not implement it yet ([Pendiente:skip] in
+  # socialcert-1.1.2.md), or it is implemented but needs a real browser container, which is
+  # not available here. Their steps are deliberately commented out so no scenario can ever
+  # report unverified behaviour as correct. Exclude them explicitly when running the suite:
   #   --tags="@local_socialcert&&~@skip_pending"
 
   Background:
@@ -83,20 +84,44 @@ Feature: Share an issued certificate on LinkedIn from the certificate activity p
     And the "href" attribute of "a#btn-normal" "css_element" should not contain "/sharing/share-offsite"
     And the "href" attribute of "a#btn-normal" "css_element" should not contain "/uas/"
 
-  # [Pendiente:skip] MDL-E2E-002 — the panel only becomes enabled after a page reload or a new
-  # visit; there is no automatic refresh nor any notice after the certificate is downloaded.
-  # The steps below describe the required behaviour and are commented out on purpose so they
-  # cannot pass against the current implementation.
+  # MDL-E2E-002 — implemented in 1.1.4 and completed in 1.1.5: the panel asks
+  # local_socialcert_get_share_state for its own state on pageshow (which includes the restoration
+  # from the back/forward cache when the student returns from the certificate PDF) and when the tab
+  # becomes visible again, and enables the button by itself. Since 1.1.5 the same refresh also adds
+  # the AI assistant card, which the server could not have rendered while there was no issue: the
+  # state returns the context of the local_socialcert/ai_card template and the browser renders that
+  # very same template through core/templates, so neither the button nor the card needs a manual
+  # reload. The scenario cannot be executed in this environment because there is no real browser
+  # container (no Selenium/Chrome): the flow needs a genuine back navigation restored from the
+  # browser cache, which the goutte driver cannot reproduce. The steps below describe the behaviour
+  # already implemented and stay commented out until a browser container is available.
   @javascript @MDL-E2E-002 @skip_pending
-  Scenario: Share panel becomes enabled right after the certificate is obtained for the first time
-    Given this scenario is pending because "MDL-E2E-002 [Pendiente:skip]: the panel is only enabled after reloading or re-entering the page; there is no automatic refresh nor any notice to the user"
+  Scenario: Share panel and assistant card appear right after the certificate is obtained for the first time
+    Given this scenario is pending because "MDL-E2E-002 requires a real browser (Selenium/Chrome), which this environment does not provide: the implemented behaviour is that the panel re-reads its state when the page is shown again after the certificate download and, without any manual reload, enables the share button and renders the AI assistant card"
     # When I am on the "Course certificate" "customcert activity" page logged in as "student1"
     # Then "a#btn-normal.disabled" "css_element" should exist
     # And I should see "You’ll need to have an issued certificate before you can share it on LinkedIn."
+    # And "div.lsc-response-wrap" "css_element" should not exist
+    # And "button#btn-ai" "css_element" should not exist
     # And I press "View certificate"
+    # And I press the browser back button
     # And "a#btn-normal.disabled" "css_element" should not exist
+    # And the "aria-disabled" attribute of "a#btn-normal" "css_element" should not be set
     # And the "href" attribute of "a#btn-normal" "css_element" should contain "https://www.linkedin.com/profile/add"
+    # And "div.local-socialcert[data-network='linkedin']" "css_element" should exist
     # And "div.lsc-error-message" "css_element" should not exist
+    # And I should see "Your certificate has been issued, so you can now share it on LinkedIn." in the "div.lsc-live" "css_element"
+    # The assistant card is rendered by the browser from local_socialcert/ai_card without reloading:
+    # And "div.lsc-response-wrap" "css_element" should exist
+    # And "div.bd-post[data-ai-composer]" "css_element" should exist
+    # And "button#btn-ai[data-action='run-ai']" "css_element" should exist
+    # And the "data-certname" attribute of "button#btn-ai" "css_element" should contain "Course certificate"
+    # And I should see "Create a professional message for your LinkedIn post in one click"
+    # And "div.ai-bar__panel[aria-hidden='true']" "css_element" should exist
+    # The card injected by the browser expands like the one rendered by the server, because the
+    # opening logic is delegated on the panel root instead of living in an inline script:
+    # And I click on "button#btn-ai" "css_element"
+    # And "div.ai-bar.is-open" "css_element" should exist
 
   # [Pendiente:skip] MDL-E2E-008 — neither the popup-blocked warning nor the share confirmation
   # is ever displayed. Both strings exist and are translated, but no code path renders them and

@@ -67,6 +67,7 @@ $string['privacy:metadata:linkedin:issuedate'] = 'The month and year the certifi
 $string['privacy:metadata:linkedin:organizationid'] = 'The numeric LinkedIn organization identifier configured by the site administrator.';
 $string['privacy:metadata:linkedin:verificationlink'] = 'The public verification link of the certificate.';
 $string['sharecompleted'] = 'LinkedIn share completed.';
+$string['sharenowavailable'] = 'Your certificate has been issued, so you can now share it on LinkedIn.';
 $string['shareinstruction'] = 'Celebrate your achievement! Click below to showcase your certificate on LinkedIn and let your network know about your success:';
 $string['sharesubtitle'] = 'We’ll post a verifiable link to your certificate.';
 $string['sharetitle'] = 'Share your achievement on LinkedIn';

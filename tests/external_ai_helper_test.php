@@ -415,15 +415,28 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
     }
 
     /**
-     * MDL-CTR-001: The plugin publishes exactly one external function with the documented metadata.
+     * MDL-CTR-001: The plugin publishes only the documented external functions.
+     *
+     * The assertion pinned a single function until version 1.1.4, when the panel gained
+     * local_socialcert_get_share_state (a read only function that reports whether the certificate
+     * is already issued) so it can enable itself without a manual reload. The list is asserted
+     * exhaustively, so any further function has to be documented here on purpose.
      */
-    public function test_plugin_publishes_a_single_external_function(): void {
+    public function test_plugin_publishes_only_the_documented_external_functions(): void {
         global $DB;
 
-        $functions = $DB->get_records('external_functions', ['component' => 'local_socialcert']);
-        $this->assertCount(1, $functions, 'The plugin must expose exactly one external function.');
+        $functions = [];
+        foreach ($DB->get_records('external_functions', ['component' => 'local_socialcert']) as $record) {
+            $functions[$record->name] = $record;
+        }
 
-        $function = reset($functions);
+        $this->assertEqualsCanonicalizing(
+            [self::FUNCTIONNAME, 'local_socialcert_get_share_state'],
+            array_keys($functions),
+            'The plugin must expose exactly the two documented external functions.'
+        );
+
+        $function = $functions[self::FUNCTIONNAME];
         $this->assertSame(self::FUNCTIONNAME, $function->name);
         $this->assertSame(ai_helper::class, $function->classname);
         $this->assertSame('execute', $function->methodname);

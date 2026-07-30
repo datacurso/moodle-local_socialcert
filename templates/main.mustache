@@ -22,6 +22,10 @@
     Displays a sharing panel to publish a course certificate (LinkedIn) and,
     optionally, an AI assistant to compose the post content.
 
+    The AI assistant is the local_socialcert/ai_card template, included here only while enableai
+    is true. That template documents the context it needs, which this one receives too because a
+    Mustache partial inherits the context of the template that includes it.
+
     Example context (json):
     {
         "aibuttonid": "btn-ai",
@@ -43,6 +47,7 @@
 
         "enableai": true,
         "imageurl": "https://example.com/local/socialcert/assets/logo_title.png",
+        "imagelogo": "https://example.com/local/socialcert/assets/logo.png",
         "issued": false,
         "org": "Buen Data",
         "shareurl": "https://linkedin.com/profile/add?name=AI%20Fundamentals",
@@ -60,7 +65,10 @@
         "sharesubtitle": "Celebra tu logro de aprendizaje.",
         "sharetitle": "Comparte tu certificado",
         "whatsharelabel": "¿Qué deseas compartir?",
-        "certerror": "No encontramos datos del certificado."
+        "certerror": "No encontramos datos del certificado.",
+        "errorcredits": "Créditos de IA insuficientes.",
+        "errorlicense": "Tu licencia no está autorizada para realizar esta solicitud.",
+        "errorgeneric": "Se produjo un error al generar el contenido."
     }
 }}
 
@@ -102,112 +110,11 @@
     <div class="lsc-live" aria-live="polite" aria-atomic="true"></div>
   </section>
 
+  {{! The assistant demands an issued certificate, so its markup only exists while enableai is
+      true. It lives in its own template because amd/src/actions.js renders the very same
+      template when the state web service reports the assistant as newly available, which keeps
+      one single source of truth for the markup instead of rebuilding it in JavaScript. }}
   {{#enableai}}
-  <div class="lsc-response-wrap">
-    <div class="bd-post" data-ai-composer>
-      <div class="ai-bar" role="region" aria-label="Asistente de IA para redactar tu post">
-        <img src="{{imageurl}}" alt="Logo Data Curso" class="logo-datacurso">
-        <p class="ai-bar__text" id="ai-bar-text-{{cmid}}">{{ai_actioncall}}</p>
-
-        <div class="ai-bar__btn-container">
-          <button
-            type="button"
-            class="ai-bar__button"
-            aria-describedby="ai-bar-text-{{cmid}}"
-            id="{{aibuttonid}}"
-            style="{{#imagelogo}}background-image: url('{{imagelogo}}');{{/imagelogo}}"
-            data-action="run-ai"
-            data-target="#{{responseid}}"
-            data-mode="word"
-            data-speed="40"
-            data-certname="{{certname}}"
-            data-course="{{course}}"
-            data-org="{{org}}"
-            data-certurl="{{shareurl}}"
-            data-socialmedia="LinkedIn"
-            data-errorlicense="{{errorlicense}}"
-            data-errorcredits="{{errorcredits}}"
-            data-errorgeneric="{{errorgeneric}}">
-            {{aibuttonlabel}}
-          </button>
-        </div>
-
-        <div class="ai-bar__panel" aria-hidden="true">
-          <div class="bd-post__content" aria-hidden="true">
-            <header class="bd-post__header">
-              <div class="bd-avatar" aria-label="{{author_name}} avatar" role="img">
-                {{#author_avatar_url}}
-                  <img class="bd-avatar__img" src="{{author_avatar_url}}" alt="" width="48" height="48" loading="lazy">
-                {{/author_avatar_url}}
-                {{^author_avatar_url}}
-                  <svg class="bd-avatar__svg" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
-                    <circle cx="32" cy="32" r="30" class="bd-avatar__bg"/>
-                    <circle cx="32" cy="24" r="12" class="bd-avatar__head"/>
-                    <path class="bd-avatar__bust" d="M10 52c2.6-10.4 11.6-16 22-16s19.4 5.6 22 16v2H10z"/>
-                  </svg>
-                {{/author_avatar_url}}
-              </div>
-              <div class="bd-author">
-                <strong class="bd-author__name">{{author_name}}</strong>
-              </div>
-            </header>
-
-            <main class="bd-post__main">
-              <div class="bd-message">
-
-                <div id="ai-card" class="skeleton-card" aria-busy="true" aria-live="polite">
-                  <div class="skeleton" aria-hidden="true">
-                    <div class="sk-row w-90"></div>
-                    <div class="sk-row w-40"></div>
-                    <div class="sk-row w-80"></div>
-                  </div>
-                </div>
-
-                <div id="{{responseid}}" class="bd-message__text" aria-live="polite"></div>
-
-                <div id="copyBtn" class="bd-message__cn-copy" hidden>
-                  <button type="button"
-                    class="bd-message__btn-copy"
-                    aria-label="{{copytextlabel}}"
-                    title="{{copytextlabel}}"
-                    data-action="copy-html"
-                    data-target="#{{responseid}}">
-                    <svg class="bd-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                      <path d="M16 1H4a2 2 0 0 0-2 2v12h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z"/>
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </main>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+    {{> local_socialcert/ai_card }}
   {{/enableai}}
 </div>
-
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-  document.querySelectorAll(".local-socialcert").forEach(scope => {
-    const bar   = scope.querySelector(".ai-bar");
-    const runBtn= scope.querySelector('.ai-bar [data-action="run-ai"]');
-    const panel = scope.querySelector(".ai-bar__panel");
-    if (!bar || !runBtn || !panel) return;
-
-    let opened = false;
-    runBtn.addEventListener("click", () => {
-      if (opened) return;
-      opened = true;
-      bar.classList.add("is-open"); 
-      panel.style.height = panel.scrollHeight + "px";
-      panel.addEventListener("transitionend", () => {
-        panel.style.height = "auto";
-        panel.removeAttribute("aria-hidden");
-      }, { once: true });
-
-      bar.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-  });
-});
-</script>
