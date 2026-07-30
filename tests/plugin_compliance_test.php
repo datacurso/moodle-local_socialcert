@@ -31,7 +31,6 @@ require_once($CFG->libdir . '/adminlib.php');
  * @coversNothing
  */
 final class plugin_compliance_test extends \advanced_testcase {
-
     /** @var string Relative path of the plugin. */
     private const PLUGINPATH = '/local/socialcert';
 

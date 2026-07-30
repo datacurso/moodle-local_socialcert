@@ -22,8 +22,6 @@ use core_privacy\local\metadata\provider as metadata_provider;
 use core_privacy\local\metadata\types\external_location;
 use core_privacy\manager;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Tests for the plugin privacy declaration.
  *
@@ -41,7 +39,6 @@ defined('MOODLE_INTERNAL') || die();
  * @covers     \local_socialcert\privacy\provider
  */
 final class privacy_provider_test extends \advanced_testcase {
-
     /** @var string Fully qualified name of the expected privacy provider. */
     private const PROVIDERCLASS = 'local_socialcert\\privacy\\provider';
 

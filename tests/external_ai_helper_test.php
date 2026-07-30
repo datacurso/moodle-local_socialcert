@@ -37,20 +37,13 @@ require_once($CFG->dirroot . '/webservice/tests/helpers.php');
  * array instead of with expectException(). Only malformed parameters still throw, because
  * validate_parameters() runs outside the try block.
  *
- * The whole class runs in separate processes because classes/external/ai_helper.php still does a
- * file level require_once of lib/externallib.php, and that file calls require_phpunit_isolation().
- * Without isolation the class cannot even be autoloaded during a test run.
- *
  * @package    local_socialcert
  * @category   test
  * @copyright  2026 Datacurso
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @covers     \local_socialcert\external\ai_helper
- * @runTestsInSeparateProcesses
- * @preserveGlobalState disabled
  */
 final class external_ai_helper_test extends \externallib_advanced_testcase {
-
     /** @var string Name of the single external function declared by the plugin. */
     private const FUNCTIONNAME = 'local_socialcert_get_ai_response';
 

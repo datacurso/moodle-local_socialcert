@@ -27,8 +27,6 @@ namespace local_socialcert;
 
 use local_socialcert\output\linkedin_helper;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Tests for the raw construction of the LinkedIn "Add to profile" URL.
  *
@@ -43,7 +41,6 @@ defined('MOODLE_INTERNAL') || die();
  * @covers      \local_socialcert\output\linkedin_helper
  */
 final class linkedin_helper_test extends \advanced_testcase {
-
     /** @var string Sample verification URL used across the tests. */
     private const VERIFY_URL = 'https://example.com/mod/customcert/verify_certificate.php?code=ABC1234567';
 

@@ -28,8 +28,6 @@ namespace local_socialcert;
 use local_socialcert\output\main_panel;
 use mod_customcert\certificate;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Tests for main_panel::export_for_template().
  *
@@ -44,7 +42,6 @@ defined('MOODLE_INTERNAL') || die();
  * @covers      \local_socialcert\output\main_panel
  */
 final class main_panel_test extends \advanced_testcase {
-
     /**
      * MDL-INT-003: with an issued certificate the share action is active, targets the
      * LinkedIn form and carries the credential of the session user.

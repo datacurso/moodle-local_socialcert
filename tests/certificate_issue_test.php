@@ -30,8 +30,6 @@ use mod_customcert\certificate;
 use mod_customcert\task\issue_certificates_task;
 use mod_customcert\template;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Tests the data layer of the issue and the resulting panel availability.
  *
@@ -61,7 +59,6 @@ defined('MOODLE_INTERNAL') || die();
  * @covers      \local_socialcert\output\main_panel
  */
 final class certificate_issue_test extends \advanced_testcase {
-
     /**
      * MDL-INT-005: once the issue exists for the session user the panel becomes operational and
      * carries the code of that issue.

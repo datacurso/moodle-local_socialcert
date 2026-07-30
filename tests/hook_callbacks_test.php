@@ -27,8 +27,6 @@ namespace local_socialcert;
 
 use core\hook\output\before_footer_html_generation;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Tests for local_socialcert\hook_callbacks.
  *
@@ -42,7 +40,6 @@ defined('MOODLE_INTERNAL') || die();
  * @covers      \local_socialcert\hook_callbacks
  */
 final class hook_callbacks_test extends \advanced_testcase {
-
     /**
      * MDL-INT-002: the panel is injected at the end of the activity view for an authenticated
      * non guest user when the page has an associated course module.

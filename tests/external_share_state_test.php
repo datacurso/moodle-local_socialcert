@@ -56,7 +56,6 @@ require_once($CFG->dirroot . '/webservice/tests/helpers.php');
  * @covers     \local_socialcert\external\share_state
  */
 final class external_share_state_test extends \externallib_advanced_testcase {
-
     /** @var string Name of the external function under test. */
     private const FUNCTIONNAME = 'local_socialcert_get_share_state';
 

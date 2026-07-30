@@ -31,20 +31,13 @@ require_once($CFG->dirroot . '/webservice/tests/helpers.php');
  * (insufficient credits, unauthorised licence, rate limit). That code therefore has to
  * travel intact through the web service return structure and reach the browser.
  *
- * Runs in separate processes for the same reason as external_ai_helper_test: the external
- * class does a file level require_once of lib/externallib.php, which calls
- * require_phpunit_isolation().
- *
  * @package    local_socialcert
  * @category   test
  * @copyright  2026 Datacurso
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @covers     \local_socialcert\external\ai_helper
- * @runTestsInSeparateProcesses
- * @preserveGlobalState disabled
  */
 final class error_code_contract_test extends \externallib_advanced_testcase {
-
     /**
      * MDL-CTR-002: a provider error code that is not strictly alphanumeric reaches the panel intact.
      *

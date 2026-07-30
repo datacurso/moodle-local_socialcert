@@ -28,8 +28,6 @@ namespace local_socialcert;
 use local_socialcert\output\main_panel;
 use mod_customcert\certificate;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Tests that the AI assistant demands an issued certificate, just like the share button.
  *
@@ -47,7 +45,6 @@ defined('MOODLE_INTERNAL') || die();
  * @covers      \local_socialcert\output\main_panel
  */
 final class ai_card_availability_test extends \advanced_testcase {
-
     /**
      * MDL-E2E-004: a user without an issued certificate must not get the AI assistant, so no
      * generation can be requested and no credits can be consumed.
