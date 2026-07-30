@@ -117,6 +117,21 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
     }
 
     /**
+     * Skip the current test when the AI provider plugin is not installed on the site.
+     *
+     * The provider is declared as a dependency of this plugin, but it is not published publicly,
+     * so continuous integration environments may run without it. Only the tests that reach the
+     * HTTP client need it: every business revalidation happens before the client is built.
+     *
+     * @return void
+     */
+    private function require_ai_provider(): void {
+        if (\core_component::get_component_directory('aiprovider_datacurso') === null) {
+            $this->markTestSkipped('The aiprovider_datacurso plugin is not installed on this site.');
+        }
+    }
+
+    /**
      * Discard the debugging message that execute() emits for every caught exception.
      *
      * @return void
@@ -298,6 +313,7 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
      */
     public function test_missing_provider_license_key_fails_before_contacting_the_service(): void {
         $this->resetAfterTest();
+        $this->require_ai_provider();
         $fixture = $this->create_certificate_fixture();
         $this->issue_certificate($fixture->customcert, $fixture->student);
         $this->disable_provider_license();
