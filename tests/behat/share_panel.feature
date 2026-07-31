@@ -100,7 +100,7 @@ Feature: Share an issued certificate on LinkedIn from the certificate activity p
     Given this scenario is pending because "MDL-E2E-002 requires a real browser (Selenium/Chrome), which this environment does not provide: the implemented behaviour is that the panel re-reads its state when the page is shown again after the certificate download and, without any manual reload, enables the share button and renders the AI assistant card"
     # When I am on the "Course certificate" "customcert activity" page logged in as "student1"
     # Then "a#btn-normal.disabled" "css_element" should exist
-    # And I should see "You’ll need to have an issued certificate before you can share it on LinkedIn."
+    # And I should see "Get your certificate first: download it from this page to enable sharing it on LinkedIn."
     # And "div.lsc-response-wrap" "css_element" should not exist
     # And "button#btn-ai" "css_element" should not exist
     # And I press "View certificate"

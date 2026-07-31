@@ -26,7 +26,11 @@ defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_socialcert';
 $plugin->release = '1.1.3';
-$plugin->version = 2026073001;
+// The release stays at 1.1.3 on purpose: this is the same functional release. The version number
+// still has to grow because Moodle only installs the capabilities of db/access.php and the new event
+// classes while upgrading the plugin, which it decides by comparing this number with the installed
+// one.
+$plugin->version = 2026073002;
 $plugin->requires = 2024100700;
 $plugin->maturity = MATURITY_STABLE;
 $plugin->supported = [405, 501];

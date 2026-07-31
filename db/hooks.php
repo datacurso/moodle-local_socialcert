@@ -24,11 +24,9 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+// Only the footer hook is declared: the stylesheet of the panel needs no callback because Moodle
+// adds the styles.css of every plugin to the CSS of the theme by itself.
 $callbacks = [
-    [
-        'hook' => \core\hook\output\before_standard_html_head_generation::class,
-        'callback' => [\local_socialcert\hook_callbacks::class, 'before_standard_html_head_generation'],
-    ],
     [
         'hook' => \core\hook\output\before_footer_html_generation::class,
         'callback' => [\local_socialcert\hook_callbacks::class, 'before_footer_html_generation'],

@@ -476,17 +476,17 @@
     animation: shimmer 1.25s infinite linear;
 }
 
-.sk-row {
+.local-socialcert .sk-row {
     height: 14px;
     margin: 10px 0;
 }
-.w-90 {
+.local-socialcert .w-90 {
     width: 90%;
 }
-.w-40 {
+.local-socialcert .w-40 {
     width: 40%;
 }
-.w-80 {
+.local-socialcert .w-80 {
     width: 80%;
 }
 
@@ -500,15 +500,15 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .skeleton > * {
+    .local-socialcert .skeleton > * {
         animation: none;
     }
 }
 
-.card.loaded .skeleton {
+.local-socialcert .card.loaded .skeleton {
     display: none;
 }
-.card.loaded .content {
+.local-socialcert .card.loaded .content {
     display: block;
 }
 .local-socialcert .ai-bar__button {

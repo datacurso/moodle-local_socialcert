@@ -26,6 +26,7 @@
 namespace local_socialcert;
 
 use core\hook\output\before_footer_html_generation;
+use mod_customcert\certificate;
 
 /**
  * Tests for local_socialcert\hook_callbacks.
@@ -133,7 +134,11 @@ final class hook_callbacks_test extends \advanced_testcase {
 
     /**
      * MDL-INT-002: the plugin adds no pages, menus or blocks of its own, so its only
-     * integration point is the hook callbacks declared in db/hooks.php.
+     * integration point is the hook callback declared in db/hooks.php.
+     *
+     * The expected number of callbacks went from two to one on purpose: the callback that declared
+     * the stylesheet was registered against a hook class that does not exist in Moodle 4.5, so it
+     * never ran, and it was redundant anyway (see MDL-INT-021).
      */
     public function test_plugin_adds_no_pages_menus_or_blocks(): void {
         global $CFG;
@@ -147,27 +152,300 @@ final class hook_callbacks_test extends \advanced_testcase {
         $this->assertFileDoesNotExist($plugindir . '/index.php');
         // No bundled blocks.
         $this->assertDirectoryDoesNotExist($plugindir . '/blocks');
-        // Only the two output hooks are declared.
+        // Only the footer output hook is declared.
         $callbacks = [];
         require($plugindir . '/db/hooks.php');
-        $this->assertCount(2, $callbacks);
+        $this->assertCount(1, $callbacks);
+        $this->assertSame(before_footer_html_generation::class, $callbacks[0]['hook']);
     }
 
     /**
-     * MDL-INT-006: the panel is not shown on the intermediate activity pages, namely the
-     * required time notice and the issue deletion confirmation.
+     * MDL-INT-021: every hook the plugin declares exists in this Moodle version, so no declaration
+     * is dead, and the styles of the panel do not depend on any of them.
      *
-     * [Pendiente:skip] Both intermediate pages keep the 'mod-customcert-view' page type and the
-     * same course module, so the callback injects the panel in its error state on both of them.
-     * Visual coherence improvement pending.
+     * Previously the plugin declared \core\hook\output\before_standard_html_head_generation, which
+     * does not exist in Moodle 4.5 (the real hook is before_standard_head_html_generation), so the
+     * callback that added styles.css never ran. The declaration is gone because Moodle already adds
+     * the styles.css of every plugin to the CSS of the theme, which is the mechanism that has been
+     * styling the panel all along.
      */
-    public function test_panel_is_not_injected_on_intermediate_activity_pages(): void {
-        $this->markTestSkipped(
-            'The required time notice and the issue deletion confirmation are served by ' .
-            'mod/customcert/view.php with the mod-customcert-view page type and a course module ' .
-            'set, so the callback cannot tell them apart and injects the panel on both. ' .
-            'Pending improvement.'
+    public function test_declared_hooks_exist_and_the_panel_styles_need_no_callback(): void {
+        global $CFG;
+
+        $plugindir = $CFG->dirroot . '/local/socialcert';
+
+        $callbacks = [];
+        require($plugindir . '/db/hooks.php');
+
+        foreach ($callbacks as $callback) {
+            $this->assertTrue(
+                class_exists($callback['hook']),
+                "The declared hook '{$callback['hook']}' does not exist in this Moodle version, " .
+                'so its callback would never run.'
+            );
+            $this->assertTrue(
+                is_callable($callback['callback']),
+                'Every declared callback must be callable.'
+            );
+        }
+
+        // The stylesheet Moodle picks up automatically, and the callback that used to declare it.
+        $this->assertFileExists($plugindir . '/styles.css');
+        $this->assertFalse(
+            method_exists(hook_callbacks::class, 'before_standard_html_head_generation'),
+            'The callback of the non existent head hook must not survive.'
         );
+        $this->assertStringNotContainsString(
+            'requires->css',
+            (string) file_get_contents($plugindir . '/classes/hook_callbacks.php'),
+            'The plugin must not declare its own stylesheet explicitly.'
+        );
+
+        // Every rule of the stylesheet is scoped under the root class of the panel, which is what
+        // makes the automatic aggregation of the theme safe: the plugin styles the panel and
+        // nothing else of the site.
+        foreach (self::get_css_selectors($plugindir . '/styles.css') as $selector) {
+            $this->assertStringContainsString(
+                '.local-socialcert',
+                $selector,
+                "The selector '{$selector}' is not scoped under the root class of the panel."
+            );
+        }
+    }
+
+    /**
+     * MDL-INT-007: the panel is only injected for users who can receive the certificate.
+     *
+     * Previously skipped: the callback rendered the panel for every authenticated non guest user,
+     * so a teacher opening the activity to read the issues report got the panel in its error state
+     * underneath it. The callback now demands mod/customcert:receiveissue.
+     */
+    public function test_panel_is_not_injected_for_a_user_who_cannot_receive_the_certificate(): void {
+        $this->resetAfterTest();
+
+        set_config('organizationid', '12345', 'local_socialcert');
+
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $customcert = $generator->create_module('customcert', [
+            'course' => $course->id,
+            'name'   => 'AI Fundamentals',
+        ]);
+
+        $context = \context_module::instance($customcert->cmid);
+
+        // A teacher of the course: they manage the activity but never receive its certificate.
+        $teacher = $generator->create_user();
+        $generator->enrol_user($teacher->id, $course->id, 'editingteacher');
+        $this->setUser($teacher);
+        $this->assertFalse(has_capability('mod/customcert:receiveissue', $context));
+        $this->assertSame('', $this->run_footer_hook($course, $customcert->cmid, 'mod-customcert-view'));
+
+        // A user whose role has the capability prevented, even though they are enrolled.
+        $student = $generator->create_user();
+        $generator->enrol_user($student->id, $course->id, 'student');
+        $studentroleid = $this->get_role_id('student');
+        role_change_permission($studentroleid, $context, 'mod/customcert:receiveissue', CAP_PREVENT);
+        $this->setUser($student);
+        $this->assertFalse(has_capability('mod/customcert:receiveissue', $context));
+        $this->assertSame('', $this->run_footer_hook($course, $customcert->cmid, 'mod-customcert-view'));
+    }
+
+    /**
+     * MDL-INT-007: the panel is injected for the student, who is the user who receives the
+     * certificate of the activity.
+     */
+    public function test_panel_is_injected_for_a_user_who_can_receive_the_certificate(): void {
+        $this->resetAfterTest();
+
+        set_config('organizationid', '12345', 'local_socialcert');
+
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $customcert = $generator->create_module('customcert', [
+            'course' => $course->id,
+            'name'   => 'AI Fundamentals',
+        ]);
+        $student = $generator->create_user();
+        $generator->enrol_user($student->id, $course->id, 'student');
+        $this->setUser($student);
+
+        $this->assertTrue(has_capability('mod/customcert:receiveissue', \context_module::instance($customcert->cmid)));
+
+        $output = $this->run_footer_hook($course, $customcert->cmid, 'mod-customcert-view');
+
+        $this->assertStringContainsString('local-socialcert', $output);
+    }
+
+    /**
+     * MDL-INT-015: the panel is not injected for a role without the capability of the plugin.
+     *
+     * The callback demands local/socialcert:viewsharepanel on top of the checks it already made, so
+     * an administrator can take the panel away from a role without touching mod_customcert. The
+     * default archetype of the capability is the student, which is also the only archetype of
+     * mod/customcert:receiveissue, so the same student is asserted with and without the capability:
+     * the panel disappears because of the capability alone.
+     */
+    public function test_panel_is_not_injected_without_the_capability_of_the_plugin(): void {
+        $this->resetAfterTest();
+
+        set_config('organizationid', '12345', 'local_socialcert');
+
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $customcert = $generator->create_module('customcert', [
+            'course' => $course->id,
+            'name'   => 'AI Fundamentals',
+        ]);
+        $student = $generator->create_user();
+        $generator->enrol_user($student->id, $course->id, 'student');
+        $context = \context_module::instance($customcert->cmid);
+        $this->setUser($student);
+
+        // By default the student holds the capability, so the panel is there.
+        $this->assertTrue(has_capability('local/socialcert:viewsharepanel', $context));
+        $this->assertStringContainsString(
+            'local-socialcert',
+            $this->run_footer_hook($course, $customcert->cmid, 'mod-customcert-view')
+        );
+
+        // With the capability prevented for the role, nothing is injected any more.
+        role_change_permission($this->get_role_id('student'), $context, 'local/socialcert:viewsharepanel', CAP_PREVENT);
+        $this->assertFalse(has_capability('local/socialcert:viewsharepanel', $context));
+        $this->assertTrue(
+            has_capability('mod/customcert:receiveissue', $context),
+            'The user still receives the certificate: only the capability of the plugin was taken away.'
+        );
+        $this->assertSame('', $this->run_footer_hook($course, $customcert->cmid, 'mod-customcert-view'));
+    }
+
+    /**
+     * MDL-INT-006: the panel is not shown on the required time notice page.
+     *
+     * Previously skipped: both intermediate pages keep the 'mod-customcert-view' page type and the
+     * same course module, so the callback injected the panel in its error state on both of them.
+     * The callback now evaluates the very same conditions mod/customcert/view.php evaluates before
+     * replacing the page with the notice.
+     */
+    public function test_panel_is_not_injected_on_the_required_time_notice_page(): void {
+        global $DB;
+        $this->resetAfterTest();
+
+        set_config('organizationid', '12345', 'local_socialcert');
+
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $timed = $generator->create_module('customcert', [
+            'course'       => $course->id,
+            'name'         => 'Timed certificate',
+            'requiredtime' => 60,
+        ]);
+        $student = $generator->create_user();
+        $generator->enrol_user($student->id, $course->id, 'student');
+        $this->setUser($student);
+
+        // The student has spent no time in the course, so view.php answers with the notice.
+        $this->assertSame('', $this->run_footer_hook($course, $timed->cmid, 'mod-customcert-view'));
+
+        // The very same student and the very same activity do get the panel as soon as the activity
+        // stops demanding a minimum time, which is what proves the notice is what keeps the panel
+        // away and not the user.
+        $DB->set_field('customcert', 'requiredtime', 0, ['id' => $timed->id]);
+        $this->assertStringContainsString(
+            'local-socialcert',
+            $this->run_footer_hook($course, $timed->cmid, 'mod-customcert-view')
+        );
+    }
+
+    /**
+     * MDL-INT-006: the panel is not shown on the issue deletion confirmation page.
+     *
+     * The confirmation is only reachable by a user who can manage the activity, and correction of
+     * MDL-INT-007 already keeps teachers and managers away from the panel because they cannot
+     * receive the certificate. The site administrator is the case this check really covers: they
+     * hold every capability, so they both receive certificates and delete issues.
+     */
+    public function test_panel_is_not_injected_on_the_issue_deletion_confirmation_page(): void {
+        $this->resetAfterTest();
+
+        set_config('organizationid', '12345', 'local_socialcert');
+
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $customcert = $generator->create_module('customcert', [
+            'course' => $course->id,
+            'name'   => 'AI Fundamentals',
+        ]);
+        $student = $generator->create_user();
+        $generator->enrol_user($student->id, $course->id, 'student');
+        $issueid = certificate::issue_certificate($customcert->id, $student->id);
+
+        $this->setAdminUser();
+
+        // Without the deletion parameters the administrator gets the panel.
+        $this->assertStringContainsString(
+            'local-socialcert',
+            $this->run_footer_hook($course, $customcert->cmid, 'mod-customcert-view')
+        );
+
+        // While the deletion is waiting for confirmation the panel stays out of the page.
+        $_GET['deleteissue'] = $issueid;
+        try {
+            $this->assertSame('', $this->run_footer_hook($course, $customcert->cmid, 'mod-customcert-view'));
+
+            // Once the deletion is confirmed view.php redirects, so the confirmation is over and the
+            // panel is no longer suppressed.
+            $_GET['confirm'] = 1;
+            $this->assertStringContainsString(
+                'local-socialcert',
+                $this->run_footer_hook($course, $customcert->cmid, 'mod-customcert-view')
+            );
+        } finally {
+            unset($_GET['deleteissue'], $_GET['confirm']);
+        }
+    }
+
+    /**
+     * Selectors declared by a stylesheet, ignoring at rules and keyframe steps.
+     *
+     * @param string $path Absolute path of the stylesheet.
+     * @return string[] Declared selectors.
+     */
+    private static function get_css_selectors(string $path): array {
+        $css = (string) file_get_contents($path);
+
+        // Comments first, then the keyframe blocks, whose steps are percentages and not selectors.
+        $css = (string) preg_replace('~/\*.*?\*/~s', '', $css);
+        $css = (string) preg_replace('~@keyframes\s+[\w-]+\s*\{(?:[^{}]|\{[^{}]*\})*\}~s', '', $css);
+
+        // The text between the end of the previous block (or the opening of an at rule such as
+        // @media) and the opening brace of a rule is its selector list. Selector lists containing
+        // an at sign are the at rules themselves, which declare no selector of their own.
+        preg_match_all('~(?:^|[{}])\s*([^{}@]+?)\s*\{~s', $css, $matches);
+
+        $selectors = [];
+        foreach ($matches[1] as $selectorlist) {
+            foreach (explode(',', $selectorlist) as $selector) {
+                $selector = trim($selector);
+                if ($selector !== '') {
+                    $selectors[] = $selector;
+                }
+            }
+        }
+
+        return $selectors;
+    }
+
+    /**
+     * ID of a role by its short name.
+     *
+     * @param string $shortname Short name of the role.
+     * @return int Role ID.
+     */
+    private function get_role_id(string $shortname): int {
+        global $DB;
+
+        return (int) $DB->get_field('role', 'id', ['shortname' => $shortname], MUST_EXIST);
     }
 
     /**

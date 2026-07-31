@@ -1,37 +1,31 @@
 # Share Certificate AI (local_socialcert)
 
-A Moodle plugin that adds an **“Add certificate to LinkedIn”** button to **Custom certificate** activities and, optionally, generates a **professional AI message** ready for your LinkedIn post. All with **one click** for the learner.
+A Moodle plugin that lets learners add the certificates they earn in **Custom certificate** activities to their **LinkedIn profile** with one click, and generates a **professional AI message** ready to paste into a LinkedIn post.
 
-> **Dependency:** Requires [`mod_customcert`](https://moodle.org/plugins/mod_customcert). It doesn’t modify *Custom certificate*; it only adds a contextual action.
+The plugin does not modify *Custom certificate*: it adds its own panel at the end of the certificate page.
 
 ---
 
 ## Features
 
-* **LinkedIn Add-to-profile** button on each issued certificate (from *Custom certificate*).
-* **Provider AI** integration (another Buen Data plugin) to **suggest LinkedIn post copy**.
-* Public verification link (`verify_certificate.php?code=...`) included automatically.
-* Complies with Moodle’s privacy API; **no additional personal data** is stored.
-* Languages: English (default), Spanish, German, French, Portuguese, Indonesian, and Russian.
+* **LinkedIn Add-to-profile** button, prefilled with the certificate name, the issuing organization, the issue date, the credential code, the public verification link and, when the certificate carries an expiry element, the expiry date.
+* **AI assistant** that drafts the LinkedIn post for the learner, with a preview of the post and a button to copy the text to the clipboard.
+* **Enables itself without a page reload**: as soon as the learner obtains the certificate, the share button and the AI assistant become available when the page is shown again, with no manual refresh.
+* **Warns when the published link will not be verifiable** by a third party, so administrators can review the verification settings of the site and of the activity.
+* **Own capabilities** to restrict the share panel and the AI assistant by role.
+* **Event logging** of every share and every AI generation, so the use of the assistant is traceable in the logs of the site.
+* Complies with the Moodle privacy API: no personal data is stored by the plugin, and the data sent to the Datacurso AI service and to LinkedIn is declared in the privacy registry.
+* Languages: English, Spanish, German, French, Portuguese, Indonesian and Russian.
 
 ---
 
-# Prerequisites
+## Prerequisites
 
-- **Moodle 4.5**
-- Install the Moodle AI provider **“DataCurso AI Provider.”**  
-  Download it for free from [https://moodle.org/plugins/aiprovider_datacurso/versions](https://moodle.org/plugins/aiprovider_datacurso/versions).
-- In the DataCurso AI Provider settings, configure a valid license key as documented at  
-  [https://docs.datacurso.com/index.php?title=Datacurso_AI_Provider#Getting_license_keys](https://docs.datacurso.com/index.php?title=Datacurso_AI_Provider#Getting_license_keys).
-- **"Custom certificate"** (https://moodle.org/plugins/mod_customcert) (recommended minimum: **2024042212**).
+* **Moodle 4.5** to **Moodle 5.1**.
+* **[Custom certificate](https://moodle.org/plugins/mod_customcert)** (`mod_customcert`), minimum version **2024042212**.
+* **[DataCurso AI Provider](https://moodle.org/plugins/aiprovider_datacurso/versions)** (`aiprovider_datacurso`), minimum version **2025100201**, configured with a valid licence key. See [Getting license keys](https://docs.datacurso.com/index.php?title=Datacurso_AI_Provider#Getting_license_keys).
 
-> **IMPORTANT:** This plugin will not function unless the DataCurso AI Provider plugin is installed **and** licensed.
-
-## Pre-requisites
-
-* **Moodle 4.5** (recommended minimum: **2025100201**) or later.
-* **`mod_customcert`** (recommended minimum: **2024042212**).
-* **Provider AI** to auto-generate the LinkedIn post message (version **2025100201**) — optional.
+> **Both plugins are required dependencies:** Moodle will not install Share Certificate AI until they are present. The share button works without a licence key, but the AI assistant needs the provider installed **and** licensed.
 
 ---
 
@@ -58,30 +52,29 @@ A Moodle plugin that adds an **“Add certificate to LinkedIn”** button to **C
 
 ---
 
-## Plugin Configuration
-
-Once installed, configure the plugin as follows:
+## Plugin configuration
 
 1. **Sign in as a site administrator.**
 2. Navigate to **Site administration → Plugins → Local plugins → Share Certificate AI**.
-3. In **General settings**, review and complete:
+3. Review and complete the settings:
 
-   * **Organization name** (`organizationname`) — *recommended*.
+   * **LinkedIn organization ID** (`organizationid`) — **required to share**.
 
-     * Used in the suggested LinkedIn text and as the certificate issuer name.
-     * For best results, enter the **exact name as it appears on LinkedIn** (same casing, spacing, and accents).
-   * **LinkedIn Organization ID** (`organizationid`) — *optional*.
+     * Numeric ID of the company or organization page that LinkedIn associates with the certification.
+     * While it is empty the plugin builds no share link and the share action stays disabled, so no credential is ever published attributed to another organization.
+   * **LinkedIn organization name** (`organizationname`) — *recommended*.
 
-     * Use only if you post on behalf of a **LinkedIn Company Page**.
-     * If left empty, LinkedIn’s **default behavior** applies (user profile or default context).
-     * LinkedIn Docs https://www.linkedin.com/help/linkedin/answer/a415420/associate-your-linkedin-company-id-with-the-linkedin-job-board-faqs.
-   * **Enable AI** (`enableai`) — *global toggle*.
+     * Used only as context for the AI assistant when it drafts the post. It is **not** sent to LinkedIn: LinkedIn resolves the organization from the ID above.
+     * Enter the **exact name as it appears on LinkedIn** so the drafted text matches the page.
+   * **Enable AI to suggest post text** (`enableai`) — *global toggle*, enabled by default.
 
-     * Turn on to show the **Generate text for LinkedIn** button on the certificate page. If off, the panel won’t offer the suggested text.
+     * When enabled, learners with an issued certificate see the AI assistant in the panel.
+     * When disabled, the assistant is hidden and the AI service is never contacted; the share button stays available.
 4. Click **Save changes**.
-5. *(Recommended)* Go to **Site administration → Development → Purge all caches** to ensure the frontend reflects the new settings.
 
-### How to find your LinkedIn Organization ID
+![Plugin settings](./_docs/images/local_socialcert_settings.png)
+
+### How to find your LinkedIn organization ID
 
 You must be an **administrator** of your institution’s LinkedIn Page.
 
@@ -94,67 +87,86 @@ Example:
 https://www.linkedin.com/company/61803398/admin/...
 ```
 
-In this example, the **Organization ID** is `61803398`.
+In this example, the **organization ID** is `61803398`.
 
-### Organization name recommendations
+### Making the published credential verifiable
 
-* Use the **exact public name** of the LinkedIn Page (match capitalization, accents, and spaces).
-* This helps ensure consistent behavior across the plugin.
+The share link points at the certificate verification page of *Custom certificate*, so that anyone reading the LinkedIn profile can validate the credential. For a visitor with no session to verify it, two settings have to be enabled:
 
----
+* **Site administration → Plugins → Activity modules → Custom certificate → Allow verification of all certificates** (`verifyallcertificates`).
+* **Allow anyone to verify certificates** (`verifyany`) in the settings of each Custom certificate activity.
 
-![Page Administration](./_docs/images/local_socialcert_main_panel.png)
+Both are disabled by default in *Custom certificate*. While either of them is off, the panel warns the learner that the published link will not be verifiable by third parties.
 
 ---
 
 ## Using it in a course
 
 1. **Add a Custom certificate** activity to your course.
-2. Make sure the learner **already has an issued certificate** (entry exists in `customcert_issues`).
-3. The **Add to LinkedIn profile** action will appear in the activity menu **only when**:
+2. The learner opens the activity. The **Share your achievement on LinkedIn** panel appears at the end of the page.
+3. The share button becomes available once the certificate has been **issued**, which happens when the learner obtains it from **View certificate**, or earlier if the activity sends the certificate by email.
 
-   * An **issue** exists for the current user, **and**
-   * A valid **`organizationid`** is configured in the plugin settings.
+![Share panel](./_docs/images/local_socialcert_main_panel.png)
 
-> **Important**
->
-> * If **no certificate has been issued**, the action is blocked and an **error is shown**.
-> * In that case, the plugin **will not take the user to LinkedIn** and the share flow is not available until the certificate is issued.
+While no certificate has been issued, the button is disabled and the panel explains what to do next. The learner does not need to reload the page: after obtaining the certificate and returning to the activity, the panel enables the share button and adds the AI assistant on its own.
 
-![Page Administration](./_docs/images/local_socialcert_main_panel_error.png)
+![Share panel without an issued certificate](./_docs/images/local_socialcert_main_panel_error.png)
+
+The panel is shown only to users who can receive the certificate of the activity, so it does not appear on the issues report of teachers and managers, nor on the intermediate pages of the activity.
 
 ---
 
-## Add to LinkedIn (one-click)
+## Add to LinkedIn (one click)
 
 1. On the certificate page, click **Share on LinkedIn**.
- 
+
    ![Share on LinkedIn button](./_docs/images/local_socialcert_linkedin_button.png)
 
-3. A LinkedIn window opens with your certificate details **already filled in** (title, issuer, issue date, credential ID, and verification URL). Review and click **Save/Add**.
- 
+2. A LinkedIn window opens with the certificate details **already filled in** (title, issuing organization, issue date, credential ID and verification URL). Review and click **Save**.
+
    ![LinkedIn add-to-profile dialog prefilled](./_docs/images/local_socialcert_linkedin_form.png)
 
-> If you’re not signed in to LinkedIn, you’ll be asked to **log in** first.
-> If the button doesn’t appear, make sure your certificate has been **issued** and your site admin has set the **organization name/ID**.
+> If you are not signed in to LinkedIn, you are asked to **log in** first.
+> If the browser blocks the new window, the panel asks you to allow pop-ups and the share can be retried.
+
+The plugin never publishes on behalf of the learner: it prefills the official LinkedIn form and, optionally, drafts a text to copy.
 
 ---
+
 ## Generate a LinkedIn post suggestion (AI)
 
-1. On the certificate page, find the **SocialCert** card and the **AI button** (brain icon).
- 
+1. On the certificate page, find the assistant card and its **AI button** (brain icon).
+
    ![AI button](./_docs/images/local_socialcert_button_ai.png)
 
-3. **Click the AI button.** The component will **expand** and show a preview with the **suggested LinkedIn message**.
+2. **Click the AI button.** The card expands and shows a preview of the **suggested LinkedIn message** while it is written.
+
    ![AI panel expanded](./_docs/images/local_socialcert_main_panel_ai.png)
 
-4. Review the suggested text. You can **adjust it** if you want (the plugin does not publish for you).
+3. Click **Copy** (clipboard icon) to copy the text.
 
-5. Click **Copy** (clipboard icon) in the panel’s corner to copy the text.
- 
    ![Copy button](./_docs/images/local_socialcert_copy_button.png)
 
-6. Open LinkedIn, **paste** the copied message into your post, and publish.
+4. Open LinkedIn, **paste** the message into your post, adjust it if you want, and publish.
+
+Each generation consumes credits of the DataCurso AI Provider licence. When the licence has no credits left, is not authorised, or the consumption limit has been reached, the card explains which of those happened instead of showing a generic error.
+
+---
+
+## Capabilities
+
+| Capability | Controls | Allowed by default |
+|---|---|---|
+| `local/socialcert:viewsharepanel` | Seeing the share panel on the certificate page | Student |
+| `local/socialcert:useaiassistant` | Using the AI assistant to draft the post | Student |
+
+Both are checked in the module context, so they can be overridden per activity, course or category. The defaults keep the behaviour the plugin had before they existed: only the users who can receive the certificate of the activity see the panel.
+
+---
+
+## Logs
+
+Every share and every AI generation is recorded as an event of the plugin, visible in **Site administration → Reports → Logs** and in the course logs. Only generations the AI service really answered are logged, so the log reflects the consumption of credits.
 
 ---
 

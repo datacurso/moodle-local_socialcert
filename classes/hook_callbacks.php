@@ -24,56 +24,33 @@
 
 namespace local_socialcert;
 
-use core\hook\output\before_standard_html_head_generation;
+use cm_info;
+use core\context\module as context_module;
 use core\hook\output\before_footer_html_generation;
+use mod_customcert\certificate;
 
 /**
  * Defines plugin hook callbacks for local_socialcert.
  *
- * Contains static methods that respond to Moodle’s hook system in order
- * to inject custom CSS, JavaScript, and HTML into the certificate view page.
+ * Contains the static method that responds to Moodle's hook system in order to inject the share
+ * panel into the custom certificate view page.
  *
- * Specifically:
- * - Adds a custom stylesheet before the <head> tag is rendered.
- * - Injects the rendered panel template before the page footer.
+ * The stylesheet of the panel is deliberately not declared here: Moodle adds the styles.css of
+ * every plugin to the CSS of the theme by itself (see \core\output\theme_config::get_css_files()),
+ * so an explicit declaration would be redundant. The plugin used to register a callback for a
+ * hypothetical before_standard_html_head_generation hook, which does not exist in Moodle 4.5
+ * (the real one is before_standard_head_html_generation) and therefore never ran.
  *
  * @package    local_socialcert
  * @category   output
  */
 class hook_callbacks {
     /**
-     * Adds custom CSS and JS requirements before the standard <head> section is generated.
+     * Injects the share panel into the footer area of the certificate view page.
      *
-     * This callback is triggered via the before_standard_html_head_generation hook.
-     * It ensures that the plugin stylesheet is loaded only on the custom certificate
-     * view page for logged-in, non-guest users.
-     *
-     * @param before_standard_html_head_generation $hook The hook object for the event.
-     * @return void
-     */
-    public static function before_standard_html_head_generation(
-        before_standard_html_head_generation $hook
-    ): void {
-        global $PAGE;
-
-        if (
-            $PAGE->pagetype !== 'mod-customcert-view' ||
-            empty($PAGE->cm->id) ||
-            !isloggedin() ||
-            isguestuser()
-        ) {
-            return;
-        }
-
-        $PAGE->requires->css('/local/socialcert/styles.css');
-    }
-
-    /**
-     * Injects custom HTML into the footer area of the certificate view page.
-     *
-     * Triggered by the before_footer_html_generation hook. Renders the
-     * local_socialcert main panel using a Mustache template and inserts
-     * it into the page output. Also loads the required JavaScript module.
+     * Triggered by the before_footer_html_generation hook. Renders the local_socialcert main panel
+     * using a Mustache template and inserts it into the page output. Also loads the required
+     * JavaScript module.
      *
      * @param before_footer_html_generation $hook The hook object for the event.
      * @return void
@@ -96,12 +73,33 @@ class hook_callbacks {
         }
 
         $cmid = (int) $PAGE->cm->id;
+        $context = context_module::instance($cmid);
+
+        // Only the users who may receive the certificate can ever have something to share, so the
+        // panel belongs to them alone. Teachers and managers open the same view to read the issues
+        // report and used to get the panel in its error state underneath it, which was pure noise.
+        if (!has_capability('mod/customcert:receiveissue', $context)) {
+            return;
+        }
+
+        // The capability of the plugin is what lets an administrator take the panel away from a role
+        // without touching mod_customcert. Its default archetype is the student, which is the only
+        // archetype of mod/customcert:receiveissue, so by default this check changes nothing.
+        if (!has_capability('local/socialcert:viewsharepanel', $context)) {
+            return;
+        }
+
+        // Sharing makes no sense on the intermediate pages mod_customcert serves from this very
+        // same URL and page type, so the panel is kept out of them.
+        if (self::is_intermediate_page($PAGE->cm, $context)) {
+            return;
+        }
 
         $panel = new \local_socialcert\output\main_panel(cmid: $cmid);
-        $context = $panel->export_for_template(output: $OUTPUT);
+        $templatecontext = $panel->export_for_template(output: $OUTPUT);
         $html  = $OUTPUT->render_from_template(
             'local_socialcert/main',
-            $context
+            $templatecontext
         );
 
         $hook->add_html($html);
@@ -109,5 +107,50 @@ class hook_callbacks {
         $PAGE->requires->js_call_amd('local_socialcert/actions', 'init', [
             'cmid' => $cmid,
         ]);
+    }
+
+    /**
+     * Whether mod/customcert/view.php is serving one of its intermediate pages.
+     *
+     * Both of them keep the mod-customcert-view page type and the course module of the activity, so
+     * they can only be told apart by the same conditions view.php itself evaluates:
+     *
+     * - The issue deletion confirmation is shown while the deleteissue parameter is present, the
+     *   deletion has not been confirmed yet and the user may manage the activity.
+     * - The required time notice replaces the whole page while the activity demands a minimum time
+     *   in the course, the user cannot manage the activity and has not spent that time yet.
+     *
+     * @param cm_info $cm Course module of the certificate activity.
+     * @param context_module $context Context of the course module.
+     * @return bool True while the page being rendered is an intermediate one.
+     */
+    private static function is_intermediate_page(cm_info $cm, context_module $context): bool {
+        global $DB;
+
+        $canmanage = has_capability('mod/customcert:manage', $context);
+
+        // The deletion confirmation is only reachable by a user who can manage the activity. Note
+        // that the receiveissue check above already keeps teachers and managers out of the panel;
+        // this branch is what covers the site administrator, who holds every capability.
+        if (
+            $canmanage &&
+            optional_param('deleteissue', 0, PARAM_INT) &&
+            !optional_param('confirm', false, PARAM_BOOL)
+        ) {
+            return true;
+        }
+
+        if ($canmanage) {
+            return false;
+        }
+
+        $customcert = $DB->get_record('customcert', ['id' => $cm->instance], 'id, requiredtime', IGNORE_MISSING);
+        if (!$customcert || empty($customcert->requiredtime)) {
+            return false;
+        }
+
+        // The time spent in the course is only read when the activity really demands one, so the
+        // log queries of get_course_time() are not paid for by every certificate of the site.
+        return certificate::get_course_time((int) $cm->course) < ((int) $customcert->requiredtime * MINSECS);
     }
 }

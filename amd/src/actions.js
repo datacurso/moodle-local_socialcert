@@ -158,7 +158,74 @@ function restoreButtonLabel(btn, label) {
  * ==========================================================================*/
 
 /**
- * Opens a link in a new tab (using element href or data-url) and briefly sets aria-busy for feedback.
+ * Selector of the panel root, used to reach its live region from a delegated element.
+ * @type {string}
+ */
+const PANEL_ROOT_SELECTOR = '.local-socialcert';
+
+/**
+ * Tells whether the handle returned by window.open() belongs to a window the user can actually see.
+ *
+ * A pop-up blocker either returns null or returns a handle that is already unusable, so both the
+ * missing handle and the handle that cannot report its own state are treated as a block. Nothing
+ * else can be inspected, because the opened window belongs to another origin.
+ *
+ * @param {?Window} popup Value returned by window.open().
+ * @returns {boolean} True when the window was blocked.
+ */
+function isPopupBlocked(popup) {
+  if (!popup) {
+    return true;
+  }
+
+  try {
+    if (typeof popup.closed === 'undefined' || popup.closed) {
+      return true;
+    }
+  } catch (e) {
+    // A handle that throws while being read is not a window the user can use.
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Records in the platform logs that the user shared the credential of the certificate.
+ *
+ * The share happens entirely in the browser (a new window with the LinkedIn add-to-profile form),
+ * so the server is never part of that navigation and this request is the only thing that can leave
+ * a trace of the action. It is a write function of its own instead of the state function, which is
+ * a read function called on every return to the page and would therefore record shares that never
+ * happened.
+ *
+ * The request is fire and forget on purpose: the credential is already on its way to LinkedIn, so a
+ * failure to write the log entry must never disturb the user.
+ *
+ * @param {?HTMLElement} root Panel root element, which carries the course module id.
+ * @returns {void}
+ */
+function logShare(root) {
+  const cmid = Number(root && root.dataset ? root.dataset.cmid : 0) || 0;
+
+  if (cmid <= 0) {
+    return;
+  }
+
+  Ajax.call([{
+    methodname: 'local_socialcert_log_share',
+    args: {cmid: cmid},
+  }])[0].catch(() => {
+    // Nothing to recover from: the share is not undone because its log entry could not be written.
+  });
+}
+
+/**
+ * Opens a link in a new tab (using element href or data-url), reports the result of the share in the
+ * live region of the panel and briefly sets aria-busy for feedback.
+ *
+ * A successful open of the share call to action is also recorded in the logs of the platform, which
+ * is the only moment the server can learn that the credential has been published.
  *
  * @param {MouseEvent} ev
  * @param {HTMLElement} el Element with an href or data-url attribute.
@@ -173,7 +240,31 @@ function handleOpenLink(ev, el) {
   const url = el.getAttribute('href') || el.dataset.url;
 
   if (url) {
-    window.open(url, '_blank', 'noopener');
+    // 'noopener' is deliberately NOT passed as a window feature: browsers return null whenever it
+    // is present, so every share would look blocked and the confirmation could never be shown.
+    // The opener reference is severed right after the window is obtained instead, which gives the
+    // same isolation while keeping the handle that tells a real block apart from a share.
+    const popup = window.open(url, '_blank');
+
+    if (isPopupBlocked(popup)) {
+      announce(el.closest(PANEL_ROOT_SELECTOR), 'popupblocked');
+    } else {
+      try {
+        popup.opener = null;
+      } catch (e) {
+        // A window already navigated to another origin can refuse the assignment; nothing to do.
+      }
+
+      const root = el.closest(PANEL_ROOT_SELECTOR);
+
+      announce(root, 'sharecompleted');
+
+      // Only the share call to action publishes a credential, so no other open-link element of the
+      // panel is ever recorded as a share.
+      if (el.matches(SHARE_BUTTON_SELECTOR)) {
+        logShare(root);
+      }
+    }
   }
 
   setTimeout(() => el.removeAttribute('aria-busy'), 300);
@@ -297,21 +388,54 @@ function removeCaret(el) {
 
 
 /**
- * Maps an error message returned by the backend to a plugin lang key.
+ * Error codes of the AI provider that mean the licence has no AI credits left.
  *
- * Detection is case-insensitive and based on simple text matches:
- * - Contains "insufficient ai credits"  -> returns `errors[0]` (e.g., "tokenserror")
- * - Contains "your license is not allowed" or "manage credits" -> returns `errors[1]` (e.g., "licenseerror")
- * - Otherwise -> returns `errors[2]` (e.g., "genericerror")
- *
- * @param {string} message - Error text returned by the service (may include HTML).
- * @param {string[]} errors - Array of lang keys in the order:
- *   [0] = key for insufficient credits (e.g., "tokenserror"),
- *   [1] = key for not-allowed license (e.g., "licenseerror"),
- *   [2] = generic key (e.g., "genericerror").
- * @returns {string} The corresponding lang key based on the message content.
+ * They are the exception codes thrown by aiprovider_datacurso, which the
+ * local_socialcert_get_ai_response web service forwards untouched in its errorcode field.
+ * @type {string[]}
  */
-function mapErrorToLangKey(message, errors) {
+const CREDITS_ERROR_CODES = ['notenoughtokens'];
+
+/**
+ * Error codes of the AI provider that mean the licence is not allowed to generate.
+ *
+ * 'forbidden' (unknown rejection of the licence) and 'invalidlicensekey' (expired or invalid key)
+ * join 'license_not_allowed' because their own messages talk about the licence and point at the
+ * credits manager of the shop, which is exactly what the licence message of the panel says.
+ * @type {string[]}
+ */
+const LICENSE_ERROR_CODES = ['license_not_allowed', 'forbidden', 'invalidlicensekey'];
+
+/**
+ * Maps an error reported by the backend to a plugin lang key.
+ *
+ * Classification is done by the error CODE, never by the message: the provider already localises
+ * its message to the language of the user, so matching English literals against it only ever
+ * worked with the interface in English and every other language fell back to the generic error.
+ *
+ * The text comparison is kept afterwards ONLY as a backup, for the case where the provider reports
+ * no code at all. It cannot make the result worse: a translated message simply matches nothing and
+ * the generic key is returned, exactly as before.
+ *
+ * @param {string} errorcode - Moodle exception code forwarded by the web service (may be empty).
+ * @param {string} message - Error text returned by the service, already localised (may include HTML).
+ * @param {string[]} errors - Array of lang keys in the order:
+ *   [0] = key for insufficient credits (e.g., "errorcredits"),
+ *   [1] = key for not-allowed license (e.g., "errorlicense"),
+ *   [2] = generic key (e.g., "errorgeneric").
+ * @returns {string} The corresponding lang key.
+ */
+function mapErrorToLangKey(errorcode, message, errors) {
+  const code = String(errorcode || '').trim();
+
+  if (CREDITS_ERROR_CODES.indexOf(code) !== -1) {
+    return errors[0];
+  }
+
+  if (LICENSE_ERROR_CODES.indexOf(code) !== -1) {
+    return errors[1];
+  }
+
   const msg = String(message || '').toLowerCase();
 
   if (msg.includes('insufficient ai credits')) {
@@ -559,7 +683,7 @@ function ai_response(certname, course, org, socialmedia, errorarray, cmid) {
           return resolve({fulltext: response.message, done: false, plugintext: false});
         }
         // Plugin owned lang string (credits / license / generic): may contain the shop link.
-        const errormsg = mapErrorToLangKey(response.message, errorarray);
+        const errormsg = mapErrorToLangKey(response.errorcode, response.message, errorarray);
         return resolve({fulltext: errormsg, done: false, plugintext: true});
       }
     }).catch(() => {
@@ -571,6 +695,98 @@ function ai_response(certname, course, org, socialmedia, errorarray, cmid) {
 /* ============================================================================
  * Action: run AI
  * ==========================================================================*/
+
+/**
+ * Class used by Moodle to fold an element away (display: none), applied to the loading skeleton.
+ * @type {string}
+ */
+const HIDDEN_CLASS = 'hidden';
+
+/**
+ * Selector of the wrapper that holds one assistant card, used to scope the lookups of its parts.
+ * @type {string}
+ */
+const AI_WRAP_SELECTOR = '.lsc-response-wrap';
+
+/**
+ * Selector of the loading skeleton of the assistant card.
+ * @type {string}
+ */
+const AI_SKELETON_SELECTOR = '.skeleton-card';
+
+/**
+ * Selector of the container of the copy button of the assistant card.
+ * @type {string}
+ */
+const AI_COPY_CONTAINER_SELECTOR = '.bd-message__cn-copy';
+
+/**
+ * Finds a part of the assistant card the button belongs to.
+ *
+ * The lookup is scoped to the card of the pressed button, and only falls back to the DOM id the
+ * template writes when the expected structure is not there, so a page rendering more than one
+ * panel never drives the progress of the wrong card.
+ *
+ * @param {HTMLElement} btn Assistant button that was pressed.
+ * @param {string} selector Selector of the part inside the card.
+ * @param {string} fallbackid DOM id the template gives to that part.
+ * @returns {?HTMLElement} The element, or null when the card does not expose it.
+ */
+function findCardElement(btn, selector, fallbackid) {
+  const wrap = btn.closest(AI_WRAP_SELECTOR);
+  const scoped = wrap ? wrap.querySelector(selector) : null;
+
+  return scoped || document.getElementById(fallbackid);
+}
+
+/**
+ * Shows the progress of a generation: the loading skeleton plus the spinner of the button.
+ *
+ * The skeleton is shown on EVERY generation. It used to be hidden when the first answer arrived and
+ * never restored, so from the second press on nothing told the user that the request was running.
+ *
+ * The spinner state is the one styles.css draws with the loading ring of the button
+ * (.ai-bar__button[aria-busy="true"]), which was never applied by this module.
+ *
+ * @param {HTMLElement} btn Assistant button that was pressed.
+ * @param {?HTMLElement} loader Loading skeleton of the card.
+ * @returns {void}
+ */
+function startAiProgress(btn, loader) {
+  btn.setAttribute('aria-busy', 'true');
+
+  if (!loader) {
+    return;
+  }
+
+  loader.classList.remove(HIDDEN_CLASS);
+  loader.setAttribute('aria-busy', 'true');
+}
+
+/**
+ * Folds the loading skeleton away, right before the answer starts being written.
+ *
+ * @param {?HTMLElement} loader Loading skeleton of the card.
+ * @returns {void}
+ */
+function hideAiSkeleton(loader) {
+  if (!loader) {
+    return;
+  }
+
+  loader.classList.add(HIDDEN_CLASS);
+  loader.setAttribute('aria-busy', 'false');
+}
+
+/**
+ * Stops the spinner of the assistant button, both when the generation ends and when it fails.
+ *
+ * @param {HTMLElement} btn Assistant button that was pressed.
+ * @returns {void}
+ */
+function stopAiSpinner(btn) {
+  btn.removeAttribute('aria-busy');
+}
 
 /**
  * Starts/stops the “AI” streaming flow.
@@ -592,12 +808,15 @@ export function runAiHandler(cmid) {
     if (sel) {
       target = document.querySelector(sel);
     } else {
-      const wrap = btn.closest('.lsc-response-wrap');
+      const wrap = btn.closest(AI_WRAP_SELECTOR);
       target = wrap ? wrap.querySelector('.lsc-response') : null;
     }
     if (!target) {
  return;
 }
+
+    const loader = findCardElement(btn, AI_SKELETON_SELECTOR, 'ai-card');
+    const copyBtn = findCardElement(btn, AI_COPY_CONTAINER_SELECTOR, 'copyBtn');
 
     if (streams.has(target)) {
       const s = streams.get(target);
@@ -605,6 +824,8 @@ export function runAiHandler(cmid) {
  s.stop();
 }
       btn.disabled = false;
+      stopAiSpinner(btn);
+      hideAiSkeleton(loader);
       setButtonLabel(btn, 'airesponsebtn');
       return;
     }
@@ -622,8 +843,9 @@ export function runAiHandler(cmid) {
     target.setAttribute('aria-busy', 'true');
     target.setAttribute('role', 'status');
 
-    const loader = document.getElementById('ai-card');
-    const copyBtn = document.getElementById('copyBtn');
+    // Visible progress of THIS generation: skeleton restored and spinner of the button started.
+    startAiProgress(btn, loader);
+
     const errorLicense = btn.dataset.errorlicense;
     const errorCredits = btn.dataset.errorcredits;
     const errorGeneric = btn.dataset.errorgeneric;
@@ -636,12 +858,14 @@ export function runAiHandler(cmid) {
     // True only when the text to display is a lang string owned by this plugin.
     let plugintext = false;
 
-    copyBtn.hidden = true;
+    if (copyBtn) {
+      copyBtn.hidden = true;
+    }
 
     ai_response(certname, course, org, socialmedia, errorarray, cmid).then((response) => {
       streamtext = response.fulltext;
       plugintext = response.plugintext === true;
-      if (response.done) {
+      if (response.done && copyBtn) {
  copyBtn.hidden = false;
 }
       return;
@@ -649,13 +873,14 @@ export function runAiHandler(cmid) {
       streamtext = errorGeneric;
       plugintext = true;
     }).finally(() => {
-      loader.classList.add('hidden');
-      loader.setAttribute('aria-busy', 'false');
+      // The answer is about to be written, so the waiting signal is folded away again.
+      hideAiSkeleton(loader);
 
       if (plugintext) {
         // Plugin owned message: rebuilt from the allowlist so its shop link stays clickable.
         renderPluginMessage(target, streamtext);
         btn.disabled = false;
+        stopAiSpinner(btn);
         restoreButtonLabel(btn, original);
         target.removeAttribute('aria-busy');
         streams.delete(target);
@@ -666,6 +891,7 @@ export function runAiHandler(cmid) {
       const stream = typewriter(target, streamtext, mode, speed);
       stream.done.then(() => {
         btn.disabled = false;
+        stopAiSpinner(btn);
         restoreButtonLabel(btn, original);
         target.removeAttribute('aria-busy');
         streams.delete(target);
@@ -822,11 +1048,15 @@ function isShareDisabled(button) {
  * The region already exists in the template, so screen readers announce the change of state
  * without moving the focus.
  *
- * @param {HTMLElement} root Panel root element.
+ * @param {?HTMLElement} root Panel root element, when the caller could reach it.
  * @param {string} key Lang string key inside the local_socialcert component.
  * @returns {Promise<void>} Resolves once the message has been written or discarded.
  */
 async function announce(root, key) {
+  if (!root) {
+    return;
+  }
+
   const live = root.querySelector('.lsc-live');
   if (!live) {
     return;

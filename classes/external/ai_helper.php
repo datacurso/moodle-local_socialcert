@@ -29,6 +29,7 @@ use core_external\external_function_parameters;
 use core_external\external_single_structure;
 use core_external\external_value;
 use aiprovider_datacurso\httpclient\ai_services_api;
+use local_socialcert\event\ai_text_generated;
 
 /**
  * External API helper for AI-based certificate generation.
@@ -77,6 +78,9 @@ class ai_helper extends external_api {
      * The business rules are revalidated here, and not only in the panel, because hiding the AI
      * card in the interface does not stop a direct call to the web service from spending credits.
      *
+     * A generation the service really answered fires \local_socialcert\event\ai_text_generated, so
+     * the consumption of the assistant is traceable in the logs of the platform.
+     *
      * @param array $body The body data containing certificate information.
      * @param array $cmid The body data containing certificate information.
      * @return array An associative array with a 'json' key holding the API response.
@@ -93,6 +97,11 @@ class ai_helper extends external_api {
             $context = \context_module::instance($params['cmid']);
             self::validate_context($context);
             require_capability('mod/customcert:view', $context);
+
+            // The capability of the assistant is revalidated here for the same reason the rest of
+            // the rules are: hiding the card in the interface does not stop a direct call to the web
+            // service from spending credits.
+            require_capability('local/socialcert:useaiassistant', $context);
 
             if (!((int) get_config('local_socialcert', 'enableai'))) {
                 throw new \moodle_exception('aidisabled', 'local_socialcert');
@@ -113,13 +122,20 @@ class ai_helper extends external_api {
 
             $body   = $params['body'];
 
-            $client   = new ai_services_api();
+            $client   = static::get_ai_client();
             $response = $client->request('POST', '/certificate/answer', $body);
             if (is_array(value: $response) || is_object(value: $response)) {
                 $json = json_encode(value: $response, flags: JSON_UNESCAPED_UNICODE);
             } else {
                 $json = json_encode(value: ['text' => (string)$response], flags: JSON_UNESCAPED_UNICODE);
             }
+
+            // Only a generation the service really answered is traced, so the log records the calls
+            // that consumed credits and never the ones the plugin or the provider rejected.
+            ai_text_generated::create([
+                'context' => $context,
+                'other'   => ['socialmedia' => (string) $body['socialmedia']],
+            ])->trigger();
 
             return ['json' => $json];
         } catch (\Exception $e) {
@@ -135,6 +151,21 @@ class ai_helper extends external_api {
             }
             return $result;
         }
+    }
+
+    /**
+     * Builds the HTTP client the generation is requested through.
+     *
+     * The client is obtained from this factory, and not with a direct instantiation inside
+     * execute(), because its constructor already performs a network request (it asks the token
+     * manager which region the licence belongs to). Without this seam the successful path of the
+     * function, and therefore the event it fires, could not be exercised without real network
+     * access. It is protected and late bound on purpose: only a subclass can substitute the client.
+     *
+     * @return ai_services_api Client of the Datacurso AI services API.
+     */
+    protected static function get_ai_client(): ai_services_api {
+        return new ai_services_api();
     }
 
     /**

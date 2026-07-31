@@ -60,8 +60,8 @@ class share_state extends external_api {
      * Returns the state of the share panel for the session user.
      *
      * The access rules are the ones the panel itself is subject to: an active session with access
-     * to the activity and the mod/customcert:view capability, on a course module that really is a
-     * custom certificate.
+     * to the activity, the mod/customcert:view capability and the local/socialcert:viewsharepanel
+     * capability, on a course module that really is a custom certificate.
      *
      * Unlike ai_helper::execute(), the rejections are not converted into a payload: this function
      * spends no credits and reaches no external service, so a failure is a plain exception and the
@@ -83,6 +83,10 @@ class share_state extends external_api {
         $context = \context_module::instance($params['cmid']);
         self::validate_context($context);
         require_capability('mod/customcert:view', $context);
+
+        // A role without the capability of the panel has no panel to report the state of, so the
+        // request is rejected here as well and not only in the footer callback that renders it.
+        require_capability('local/socialcert:viewsharepanel', $context);
 
         $cm = get_coursemodule_from_id('', $params['cmid'], 0, false, MUST_EXIST);
         if ($cm->modname !== 'customcert') {
@@ -150,6 +154,9 @@ class share_state extends external_api {
             'socialmedia' => new external_value(PARAM_ALPHANUMEXT, 'Social network the post is written for'),
             'cmid' => new external_value(PARAM_INT, 'Course module ID of the certificate activity'),
             'author_name' => new external_value(PARAM_TEXT, 'Full name of the user in session'),
+            // Empty for a user without a profile picture, which is what makes the card draw the
+            // generic silhouette instead.
+            'author_avatar_url' => new external_value(PARAM_URL, 'Profile picture of the user in session, may be empty'),
             'certname' => new external_value(PARAM_TEXT, 'Name of the issued certificate'),
             'course' => new external_value(PARAM_TEXT, 'Full name of the course of the certificate'),
             'org' => new external_value(PARAM_TEXT, 'Name of the issuing organization'),
@@ -157,6 +164,13 @@ class share_state extends external_api {
             'imageurl' => new external_value(PARAM_URL, 'URL of the assistant logo'),
             'imagelogo' => new external_value(PARAM_URL, 'URL of the background image of the assistant button'),
             'ai_actioncall' => new external_value(PARAM_TEXT, 'Call to action of the assistant'),
+            // Accessible names of the controls of the card, so the browser never has to rebuild a
+            // label of its own for the card it renders after the certificate has just been issued.
+            'aibuttonlabel' => new external_value(PARAM_TEXT, 'Accessible name of the button that starts the generation'),
+            'ailogoalt' => new external_value(PARAM_TEXT, 'Alternative text of the assistant logo'),
+            'airegionlabel' => new external_value(PARAM_TEXT, 'Accessible name of the region of the assistant'),
+            'avatarlabel' => new external_value(PARAM_TEXT, 'Accessible name of the picture of the post preview'),
+            'copytextlabel' => new external_value(PARAM_TEXT, 'Accessible name of the button that copies the text'),
             // The three error messages are lang strings of this plugin and legitimately carry a
             // link to the Datacurso shop, so they are declared raw to keep the anchor. The module
             // rebuilds them from an allowlist of nodes before showing them, never with innerHTML.

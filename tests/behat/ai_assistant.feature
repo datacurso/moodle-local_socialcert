@@ -66,6 +66,21 @@ Feature: AI assistant card on the certificate share panel
     And I should see "Share on LinkedIn"
     And the "href" attribute of "a#btn-normal" "css_element" should contain "https://www.linkedin.com/profile/add"
 
+  # Steps 1 and 2 of MDL-E2E-006 that need no browser: the accessible names of the assistant
+  # controls and the label of its region are rendered by the server from language strings, so they
+  # follow the interface language instead of being hardcoded in Spanish inside the template.
+  @MDL-E2E-006
+  Scenario: Assistant controls carry their accessible name in the interface language
+    When I am on the "Course certificate" "customcert activity" page logged in as "student1"
+    And I press "View certificate"
+    And I am on the "Course certificate" "customcert activity" page
+    Then I should see "Activate AI" in the "button#btn-ai" "css_element"
+    And the "aria-label" attribute of "button.bd-message__btn-copy" "css_element" should contain "Copy the generated text"
+    And the "title" attribute of "button.bd-message__btn-copy" "css_element" should contain "Copy the generated text"
+    And the "aria-label" attribute of "div.ai-bar" "css_element" should contain "AI assistant to draft your post"
+    And the "alt" attribute of "img.logo-datacurso" "css_element" should contain "Datacurso logo"
+    And the "aria-label" attribute of "div.bd-avatar" "css_element" should contain "Profile picture of Student One"
+
   @MDL-E2E-007
   Scenario: Panel and assistant call to action are shown in English for an English interface
     When I am on the "Course certificate" "customcert activity" page logged in as "student1"
@@ -92,15 +107,16 @@ Feature: AI assistant card on the certificate share panel
     # And I should see "Crea un mensaje profesional para tu publicación de LinkedIn con un solo clic"
     # And I should not see "Share your achievement on LinkedIn"
 
-  # [Pendiente:skip] MDL-E2E-007 language gaps — see MDL-INT-013: the French pack does not load
-  # (file misnamed), the Portuguese pack is mostly written in French, Indonesian and Russian are
-  # incomplete, the English pack still contains one Spanish string ('noissue') and the template
-  # hardcodes Spanish accessibility labels ("Asistente de IA para redactar tu post",
-  # "Logo Data Curso") plus an English "Generating" label during generation for every language.
-  # Steps commented out on purpose.
+  # The language gaps of MDL-INT-013 are fixed: the seven packs now declare the whole English key
+  # set, each one written in its own language and with its own name of the plugin. What still blocks
+  # this scenario is the very same environment limitation as the one above — Moodle only honours a
+  # session language whose pack is installed on the site, and the test site ships English only, so a
+  # user with lang = fr, pt, id, ru or de falls back to English and nothing of the translation is
+  # rendered. The content of the seven packs is asserted at the unit level, in the MDL-INT-013 cases
+  # of plugin_compliance_test (key set parity, own language per pack and translated plugin name).
   @MDL-E2E-007 @skip_pending
   Scenario: Panel is fully translated in the seven bundled languages
-    Given this scenario is pending because "MDL-E2E-007 [Pendiente:skip]: French does not load (misnamed file), Portuguese is mostly French, Indonesian and Russian are incomplete, the English pack keeps one Spanish string and the template hardcodes Spanish accessibility labels plus an English Generating label"
+    Given this scenario is pending because "MDL-E2E-007: rendering the panel in the other six languages needs their language packs installed on the test site, which ships English only; the content of the seven packs is covered by the MDL-INT-013 unit tests"
     # And the following "users" exist:
     #   | username  | firstname | lastname | email          | lang |
     #   | studentfr | Etudiant  | Trois    | fr@example.com | fr   |
@@ -110,7 +126,7 @@ Feature: AI assistant card on the certificate share panel
     #   | studentde | Student   | Sieben   | de@example.com | de   |
     # When I am on the "Course certificate" "customcert activity" page logged in as "studentfr"
     # Then I should not see "Share your achievement on LinkedIn"
-    # And "div.local-socialcert [aria-label='Asistente de IA para redactar tu post']" "css_element" should not exist
+    # And I should see "Partagez votre réussite sur LinkedIn"
 
   # Steps 1 and 3 of MDL-E2E-009 that need no network: the card starts collapsed, it expands when
   # the assistant button is pressed, and nothing is persisted, so a reload brings the card back
@@ -147,22 +163,19 @@ Feature: AI assistant card on the certificate share panel
     # And "#ai-card.skeleton-card" "css_element" should exist
     # And I should see "Generating…"
 
-  # [Pendiente:skip] MDL-E2E-006 — accessibility and feedback gaps confirmed by reading the code:
-  # main_panel does not export 'aibuttonlabel' nor 'copytextlabel', so the AI button has no
-  # accessible name and the copy button has an empty aria-label/title; the loading skeleton is only
-  # hidden once and never restored for later generations; the spinner state (aria-busy on the
-  # button) is never set; and handleCopyHtml looks for a nested [data-action="copy-html"] inside the
-  # button itself, so the "Copied" confirmation is never rendered and copy failures are swallowed.
-  # Steps commented out on purpose.
+  # MDL-E2E-006 — the accessible names of the controls are covered by the scenario above, which
+  # needs no browser. What is left here is the feedback of each action, which does need one: the
+  # skeleton restored on every generation, the spinner state of the button and the copy
+  # confirmation, all of them only observable with JavaScript running. Steps commented out on
+  # purpose so no unverified behaviour is reported as correct.
   @javascript @MDL-E2E-006 @skip_pending
-  Scenario: Assistant and copy controls are accessible and every action gives feedback
-    Given this scenario is pending because "MDL-E2E-006 [Pendiente:skip]: main_panel does not export aibuttonlabel nor copytextlabel so both controls lack an accessible name, the loading skeleton is never restored, the button spinner state is never set and the copy confirmation is never rendered"
+  Scenario: Assistant and copy controls give visible feedback on every action
+    Given this scenario is pending because "MDL-E2E-006: the remaining steps need a real browser (Selenium/Chrome), which this environment does not provide; the accessible names of the controls are verified without JavaScript in the scenario above"
     # And I am on the "Course certificate" "customcert activity" page logged in as "student1"
     # And I press "View certificate"
     # And I am on the "Course certificate" "customcert activity" page
-    # Then the "aria-label" attribute of "button#btn-ai" "css_element" should be set
-    # And the "aria-label" attribute of "button.bd-message__btn-copy" "css_element" should contain "Copy"
     # And I click on "button#btn-ai" "css_element"
+    # Then "#ai-card.skeleton-card" "css_element" should exist
     # And I click on "button.bd-message__btn-copy" "css_element"
     # And I should see "Copied ✔"
 

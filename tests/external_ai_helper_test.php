@@ -20,7 +20,9 @@ use core_external\external_api;
 use core_external\external_function_parameters;
 use core_external\external_single_structure;
 use core_external\external_value;
+use local_socialcert\event\ai_text_generated;
 use local_socialcert\external\ai_helper;
+use local_socialcert\fixtures\testable_ai_helper;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -138,6 +140,26 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
      */
     private function flush_debugging(): void {
         $this->resetDebugging();
+    }
+
+    /**
+     * Load the external function wired to a stubbed AI HTTP client.
+     *
+     * The real client is only reachable through ai_helper::get_ai_client(), which exists precisely
+     * so the successful path can be exercised: the constructor of the real client already performs a
+     * network request. Everything else under test is inherited untouched from the real class.
+     *
+     * @return string Fully qualified name of the testable subclass.
+     */
+    private function load_testable_ai_helper(): string {
+        global $CFG;
+
+        $this->require_ai_provider();
+
+        require_once($CFG->dirroot . '/local/socialcert/tests/fixtures/stub_ai_services_api.php');
+        require_once($CFG->dirroot . '/local/socialcert/tests/fixtures/testable_ai_helper.php');
+
+        return testable_ai_helper::class;
     }
 
     /**
@@ -428,8 +450,10 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
      *
      * The assertion pinned a single function until version 1.1.4, when the panel gained
      * local_socialcert_get_share_state (a read only function that reports whether the certificate
-     * is already issued) so it can enable itself without a manual reload. The list is asserted
-     * exhaustively, so any further function has to be documented here on purpose.
+     * is already issued) so it can enable itself without a manual reload. The third one,
+     * local_socialcert_log_share, was added for MDL-INT-014: the share happens in the browser, so a
+     * write function is the only way the server can learn about it and record the event. The list is
+     * asserted exhaustively, so any further function has to be documented here on purpose.
      */
     public function test_plugin_publishes_only_the_documented_external_functions(): void {
         global $DB;
@@ -440,9 +464,9 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
         }
 
         $this->assertEqualsCanonicalizing(
-            [self::FUNCTIONNAME, 'local_socialcert_get_share_state'],
+            [self::FUNCTIONNAME, 'local_socialcert_get_share_state', 'local_socialcert_log_share'],
             array_keys($functions),
-            'The plugin must expose exactly the two documented external functions.'
+            'The plugin must expose exactly the three documented external functions.'
         );
 
         $function = $functions[self::FUNCTIONNAME];
@@ -535,17 +559,118 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
     /**
      * MDL-CTR-001: A successful generation returns the service payload under the json key.
      *
-     * Not automatable today: ai_helper::execute() instantiates
-     * aiprovider_datacurso\httpclient\ai_services_api directly, and that constructor already
-     * performs an HTTP request (is_for_ue() queries the token manager). There is no factory
-     * method, constructor argument or setter to substitute a double, so the happy path cannot be
-     * exercised without real network access.
+     * Previously skipped: ai_helper::execute() built aiprovider_datacurso\httpclient\ai_services_api
+     * directly and that constructor already performs an HTTP request, so there was no way to
+     * exercise the happy path without real network access. The class now obtains the client from the
+     * protected ai_helper::get_ai_client() factory, which the fixture subclass overrides, so the
+     * success path is asserted through the real function with only the transport substituted.
      */
     public function test_successful_generation_returns_the_service_payload(): void {
-        $this->markTestSkipped(
-            'No seam to inject the AI HTTP client: ai_helper::execute() builds ai_services_api '
-            . 'directly and its constructor performs a network call. A protected factory method '
-            . 'in ai_helper is required before the success path can be tested.'
+        $this->resetAfterTest();
+        $helper = $this->load_testable_ai_helper();
+
+        $fixture = $this->create_certificate_fixture();
+        $this->issue_certificate($fixture->customcert, $fixture->student);
+        set_config('enableai', 1, 'local_socialcert');
+        $this->setUser($fixture->student);
+
+        $result = $helper::execute($this->sample_body(), $fixture->cmid);
+
+        $this->assertArrayHasKey('json', $result, 'A successful generation must return the service payload.');
+        $this->assertArrayNotHasKey('ok', $result, 'A success must not carry the failure flag.');
+        $this->assertSame(
+            \local_socialcert\fixtures\stub_ai_services_api::REPLY,
+            json_decode($result['json'], true),
+            'The payload of the service must reach the panel untouched.'
         );
+    }
+
+    /**
+     * MDL-INT-014: A successful generation is recorded in the platform logs.
+     *
+     * Previously there was no event at all, so the consumption of the assistant left no trace. The
+     * event is fired only after the service has answered, which is what makes the log a record of
+     * the generations that really consumed credits.
+     */
+    public function test_successful_generation_records_the_ai_event(): void {
+        $this->resetAfterTest();
+        $helper = $this->load_testable_ai_helper();
+
+        $fixture = $this->create_certificate_fixture();
+        $this->issue_certificate($fixture->customcert, $fixture->student);
+        set_config('enableai', 1, 'local_socialcert');
+        $this->setUser($fixture->student);
+
+        $sink = $this->redirectEvents();
+        $result = $helper::execute($this->sample_body(), $fixture->cmid);
+        $events = $sink->get_events();
+        $sink->close();
+
+        $this->assertArrayHasKey('json', $result, 'The event belongs to a generation that succeeded.');
+        $this->assertCount(1, $events, 'A successful generation must record exactly one event.');
+
+        $event = reset($events);
+        $this->assertInstanceOf(ai_text_generated::class, $event);
+        $this->assertSame('local_socialcert', $event->component);
+        $this->assertSame((int) $fixture->student->id, (int) $event->userid, 'The event must name the user.');
+        $this->assertSame((int) $fixture->course->id, (int) $event->courseid, 'The event must name the course.');
+        $this->assertSame($fixture->cmid, (int) $event->contextinstanceid, 'The event must name the activity.');
+        $this->assertSame($fixture->modcontext->id, (int) $event->contextid);
+        $this->assertSame('linkedin', $event->other['socialmedia']);
+        $this->assertNotEmpty($event->get_description());
+    }
+
+    /**
+     * MDL-INT-014: A rejected generation records nothing in the platform logs.
+     *
+     * The event traces the consumption of the assistant, so a request the plugin refused (here,
+     * because the user holds no issued certificate) must never reach the log.
+     */
+    public function test_rejected_generation_records_no_event(): void {
+        $this->resetAfterTest();
+        $fixture = $this->create_certificate_fixture();
+        $this->disable_provider_license();
+        set_config('enableai', 1, 'local_socialcert');
+        $this->setUser($fixture->student);
+
+        $sink = $this->redirectEvents();
+        $result = ai_helper::execute($this->sample_body(), $fixture->cmid);
+        $events = $sink->get_events();
+        $sink->close();
+        $this->flush_debugging();
+
+        $this->assert_business_rejection($result, 'A request made without an issued certificate');
+        $this->assertSame([], $events, 'A rejected generation must leave no trace in the logs.');
+    }
+
+    /**
+     * MDL-INT-015: The function rejects a user without the capability of the AI assistant.
+     *
+     * The assistant spends the AI credits of the licence, so the capability is revalidated in the
+     * web service: hiding the card in the panel does not stop a direct call from consuming credits.
+     */
+    public function test_request_without_the_assistant_capability_is_rejected(): void {
+        $this->resetAfterTest();
+        $fixture = $this->create_certificate_fixture();
+        $this->issue_certificate($fixture->customcert, $fixture->student);
+        $this->disable_provider_license();
+        set_config('enableai', 1, 'local_socialcert');
+
+        $roleid = $this->getDataGenerator()->create_role(['shortname' => 'socialcertaidenied']);
+        assign_capability('local/socialcert:useaiassistant', CAP_PROHIBIT, $roleid, $fixture->modcontext->id, true);
+        role_assign($roleid, $fixture->student->id, $fixture->modcontext->id);
+        accesslib_clear_all_caches_for_unit_testing();
+
+        $this->setUser($fixture->student);
+
+        // The activity is still visible, so the rejection can only come from the capability of the
+        // assistant, and it happens before the AI HTTP client is built.
+        $this->assertTrue(has_capability('mod/customcert:view', $fixture->modcontext));
+
+        $result = ai_helper::execute($this->sample_body(), $fixture->cmid);
+        $this->flush_debugging();
+
+        $this->assert_business_rejection($result, 'A request made without the capability of the assistant');
+        $this->assertSame('nopermissions', $result['errorcode'] ?? '');
     }
 }

@@ -159,6 +159,32 @@ final class external_share_state_test extends \externallib_advanced_testcase {
     }
 
     /**
+     * MDL-INT-015: The function rejects a user without the capability of the share panel.
+     *
+     * Hiding the panel is not the control: without local/socialcert:viewsharepanel there is no panel
+     * to report the state of, so the request has to be rejected here too and not only in the footer
+     * callback that renders the markup.
+     */
+    public function test_request_without_the_share_panel_capability_is_rejected(): void {
+        $this->resetAfterTest();
+        $fixture = $this->create_certificate_fixture();
+
+        $roleid = $this->getDataGenerator()->create_role(['shortname' => 'socialcertpaneldenied']);
+        assign_capability('local/socialcert:viewsharepanel', CAP_PROHIBIT, $roleid, $fixture->modcontext->id, true);
+        role_assign($roleid, $fixture->student->id, $fixture->modcontext->id);
+        accesslib_clear_all_caches_for_unit_testing();
+
+        $this->setUser($fixture->student);
+
+        // The activity itself is still visible, so the rejection can only come from the capability
+        // of the plugin.
+        $this->assertTrue(has_capability('mod/customcert:view', $fixture->modcontext));
+
+        $rejection = $this->capture_rejection($fixture->cmid);
+        $this->assertSame('nopermissions', $rejection->errorcode);
+    }
+
+    /**
      * MDL-INT-009: The function rejects zero, negative and non existing course module ids.
      */
     public function test_invalid_course_module_ids_are_rejected(): void {
@@ -500,6 +526,7 @@ final class external_share_state_test extends \externallib_advanced_testcase {
             'socialmedia' => PARAM_ALPHANUMEXT,
             'cmid' => PARAM_INT,
             'author_name' => PARAM_TEXT,
+            'author_avatar_url' => PARAM_URL,
             'certname' => PARAM_TEXT,
             'course' => PARAM_TEXT,
             'org' => PARAM_TEXT,
@@ -507,6 +534,13 @@ final class external_share_state_test extends \externallib_advanced_testcase {
             'imageurl' => PARAM_URL,
             'imagelogo' => PARAM_URL,
             'ai_actioncall' => PARAM_TEXT,
+            // Accessible names of the controls, so the card the browser renders is announced exactly
+            // like the one the server renders.
+            'aibuttonlabel' => PARAM_TEXT,
+            'ailogoalt' => PARAM_TEXT,
+            'airegionlabel' => PARAM_TEXT,
+            'avatarlabel' => PARAM_TEXT,
+            'copytextlabel' => PARAM_TEXT,
             // Raw on purpose: these plugin owned messages carry the link to the Datacurso shop.
             'errorcredits' => PARAM_RAW,
             'errorgeneric' => PARAM_RAW,

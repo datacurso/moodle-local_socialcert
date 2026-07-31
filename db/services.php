@@ -39,4 +39,14 @@ $functions = [
         'type'        => 'read',
         'ajax'        => true,
     ],
+    // Declared as a write function because it is the only one that leaves something behind: the
+    // certificate_shared event of the user in session. The share itself happens in the browser, so
+    // this is what makes the action traceable in the logs of the platform.
+    'local_socialcert_log_share' => [
+        'classname'   => 'local_socialcert\\external\\log_share',
+        'methodname'  => 'execute',
+        'description' => 'Record in the logs that the user shared the credential of a certificate.',
+        'type'        => 'write',
+        'ajax'        => true,
+    ],
 ];
