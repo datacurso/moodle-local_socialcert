@@ -5,7 +5,7 @@ Feature: Share panel injection scope and share button states
   I need the panel to appear only on the certificate view and to reflect my own issue
 
   # Scenarios tagged @skip_pending describe behaviour required by the test case definition
-  # that the plugin does not implement yet ([Pendiente:skip] in socialcert-1.1.2.md). Their
+  # that the plugin does not implement yet ([Pendiente:skip] in socialcert-1.1.3.md). Their
   # steps are deliberately commented out so no scenario can ever report a known defect as
   # correct behaviour. Exclude them explicitly when running the suite:
   #   --tags="@local_socialcert&&~@skip_pending"

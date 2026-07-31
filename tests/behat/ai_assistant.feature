@@ -6,7 +6,7 @@ Feature: AI assistant card on the certificate share panel
 
   # Scenarios tagged @skip_pending describe behaviour required by the test case definition that
   # cannot be exercised here, either because the plugin does not implement it ([Pendiente:skip] /
-  # [Pendiente:fail] in socialcert-1.1.2.md) or because it needs the external Datacurso AI service
+  # [Pendiente:fail] in socialcert-1.1.3.md) or because it needs the external Datacurso AI service
   # and credits manager, which are not reachable from the plugin CI. Their steps are deliberately
   # commented out so no scenario can ever report a known defect as correct behaviour.
   # Exclude them explicitly when running the suite:
@@ -36,9 +36,9 @@ Feature: AI assistant card on the certificate share panel
       | organizationname | Buen Data | local_socialcert |
       | enableai         | 1         | local_socialcert |
 
-  # Visual layer of MDL-INT-001 step 4. The certificate is issued first on purpose: the AI card
-  # must never be asserted as correct for a user without an issue (that is MDL-E2E-004,
-  # [Pendiente:fail], and belongs to the service layer).
+  # Visual layer of MDL-INT-001 step 4. The certificate is issued first on purpose: the assistant is
+  # only available to a user with an issued certificate, which MDL-E2E-004 covers on the service
+  # layer, so this scenario never asserts the card for a user without one.
   @MDL-INT-001
   Scenario: AI assistant card is rendered when AI is enabled globally
     When I am on the "Course certificate" "customcert activity" page logged in as "student1"

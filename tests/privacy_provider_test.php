@@ -25,7 +25,7 @@ use core_privacy\manager;
 /**
  * Tests for the plugin privacy declaration.
  *
- * Both cases in this file were flagged [Pendiente:fail] in the test definition, so they assert the
+ * Both cases in this file assert the
  * CORRECT expected behaviour: classes/privacy/provider.php used to declare the namespace of a
  * different plugin (local_whatsapp), so \local_socialcert\privacy\provider could not be autoloaded
  * and the platform saw the plugin as having no privacy declaration at all. The provider now lives

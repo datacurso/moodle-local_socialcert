@@ -6,7 +6,7 @@ Feature: Share an issued certificate on LinkedIn from the certificate activity p
 
   # Scenarios tagged @skip_pending describe behaviour that cannot be asserted in this
   # environment: either the plugin does not implement it yet ([Pendiente:skip] in
-  # socialcert-1.1.2.md), or it is implemented but needs a real browser container, which is
+  # socialcert-1.1.3.md), or it is implemented but needs a real browser container, which is
   # not available here. Their steps are deliberately commented out so no scenario can ever
   # report unverified behaviour as correct. Exclude them explicitly when running the suite:
   #   --tags="@local_socialcert&&~@skip_pending"
@@ -123,12 +123,12 @@ Feature: Share an issued certificate on LinkedIn from the certificate activity p
     # And I click on "button#btn-ai" "css_element"
     # And "div.ai-bar.is-open" "css_element" should exist
 
-  # [Pendiente:skip] MDL-E2E-008 — neither the popup-blocked warning nor the share confirmation
-  # is ever displayed. Both strings exist and are translated, but no code path renders them and
-  # there is no popup-blocking detection at all. Steps commented out on purpose.
+  # MDL-E2E-008 is implemented: the share action detects a window the browser refused to open and
+  # announces it, and confirms the share when the window did open. Verifying it needs a real browser
+  # that can block a pop-up, which this environment has no container for, so the steps stay commented.
   @javascript @MDL-E2E-008 @skip_pending
   Scenario: Share action reports a blocked popup and confirms a completed share
-    Given this scenario is pending because "MDL-E2E-008 [Pendiente:skip]: neither the popup blocked warning nor the share confirmation is ever rendered; both strings are translated but no code path shows them and there is no popup blocking detection"
+    Given this scenario is pending because "MDL-E2E-008: the popup blocked warning and the share confirmation are implemented; asserting them needs a real browser able to block a pop-up, which is not available in this environment"
     # When I am on the "Course certificate" "customcert activity" page logged in as "student1"
     # And I press "View certificate"
     # And I am on the "Course certificate" "customcert activity" page
