@@ -28,8 +28,6 @@ namespace local_socialcert;
 use local_socialcert\output\main_panel;
 use mod_customcert\certificate;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Tests that the credential link published on LinkedIn is verifiable by third parties.
  *
@@ -48,15 +46,14 @@ defined('MOODLE_INTERNAL') || die();
  * @covers      \local_socialcert\output\main_panel
  */
 final class share_link_verifiability_test extends \advanced_testcase {
-
     /**
      * MDL-E2E-003: with the platform default configuration the credential link is not verifiable
      * by an anonymous visitor, so the panel must not publish it, or must export a warning that
      * the current configuration does not allow public verification.
      *
-     * [Pendiente:fail] The panel builds and publishes the share URL without looking at the
-     * verification configuration, and exports no warning of any kind. This test asserts the
-     * correct behaviour and MUST fail until the plugin validates that configuration.
+     * The panel used to build and publish the share URL without looking at the verification
+     * configuration, exporting no warning of any kind. It now exports the 'verifywarning' string
+     * whenever the site or the activity settings prevent an anonymous visitor from verifying.
      */
     public function test_share_link_is_withheld_or_flagged_when_public_verification_is_disabled(): void {
         $this->resetAfterTest();

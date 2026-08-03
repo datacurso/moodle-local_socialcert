@@ -65,6 +65,14 @@ jobs:
           sudo locale-gen en_AU.UTF-8
           echo "NVM_DIR=$HOME/.nvm" >> $GITHUB_ENV
 
+      # This plugin declares mod_customcert as a dependency in version.php, but moodle-plugin-ci
+      # does not resolve declared dependencies on its own, so the activity has to be fetched
+      # explicitly. Without it Moodle refuses to install this plugin and every test that builds a
+      # certificate activity fails. MOODLE_404_STABLE is the branch that targets Moodle 4.4 and
+      # above, which covers the 4.5 site used here; the main branch requires Moodle 5.3.
+      - name: Add dependent plugins
+        run: moodle-plugin-ci add-plugin --branch MOODLE_404_STABLE mdjnelson/moodle-mod_customcert
+
       - name: Install moodle-plugin-ci
         run: moodle-plugin-ci install --plugin ./plugin --db-host=127.0.0.1
         env:

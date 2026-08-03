@@ -54,7 +54,7 @@ class linkedin_helper {
      * @param string   $certurl         Public verification URL (no auth).
      * @param string   $certid          Unique certificate ID (e.g., issue code).
      * @param int|null $expiryunixtime  Optional expiration timestamp.
-     * @return string|null              Fully built URL, or null if not enough config.
+     * @return string|null              Fully built URL, or null when the organization ID is not configured.
      */
     public static function build_linkedin_url(
         string $certname,
@@ -63,10 +63,12 @@ class linkedin_helper {
         string $certid,
         ?int $expiryunixtime = null
     ): ?string {
-        $defaultorgid = '1337';
-
-        $raworgid = get_config('local_socialcert', 'organizationid');
-        $orgid = (string)(empty($raworgid) ? $defaultorgid : $raworgid);
+        // No organization may be invented here: publishing the credential under a foreign
+        // organization ID would attribute it to a third party. Without the setting there is no URL.
+        $orgid = trim((string) get_config('local_socialcert', 'organizationid'));
+        if ($orgid === '') {
+            return null;
+        }
 
         $params = [
             'startTask' => 'CERTIFICATION_NAME',

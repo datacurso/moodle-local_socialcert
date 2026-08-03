@@ -26,8 +26,8 @@
 namespace local_socialcert;
 
 use local_socialcert\output\linkedin_helper;
-
-defined('MOODLE_INTERNAL') || die();
+use local_socialcert\output\main_panel;
+use mod_customcert\certificate;
 
 /**
  * Tests for the raw construction of the LinkedIn "Add to profile" URL.
@@ -41,9 +41,9 @@ defined('MOODLE_INTERNAL') || die();
  * @copyright   2026 Datacurso
  * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @covers      \local_socialcert\output\linkedin_helper
+ * @covers      \local_socialcert\output\main_panel::get_share_state
  */
 final class linkedin_helper_test extends \advanced_testcase {
-
     /** @var string Sample verification URL used across the tests. */
     private const VERIFY_URL = 'https://example.com/mod/customcert/verify_certificate.php?code=ABC1234567';
 
@@ -250,17 +250,114 @@ final class linkedin_helper_test extends \advanced_testcase {
     /**
      * MDL-UNIT-002: the share panel forwards the credential expiry date to LinkedIn.
      *
-     * [Pendiente:skip] The builder supports the expiry argument (covered by
-     * test_expiration_year_and_month_are_added_when_an_expiry_time_is_supplied) but
-     * main_panel::export_for_template() never passes it, so the expiry never reaches
-     * LinkedIn from the panel. Pending functionality.
+     * Previously skipped: main_panel::get_share_state() called the builder without the expiry
+     * argument, so the expiration never reached LinkedIn from the panel. The panel now reads the
+     * date through customcertelement_expiry, exactly as mod/customcert/verify_certificate.php does.
      */
     public function test_panel_forwards_the_certificate_expiry_date_to_linkedin(): void {
-        $this->markTestSkipped(
-            'main_panel::export_for_template() calls build_linkedin_url() without the expiry ' .
-            'argument, so the credential expiration date is never sent to LinkedIn from the panel. ' .
-            'Pending functionality.'
-        );
+        $this->resetAfterTest();
+        $this->setTimezone('UTC', 'UTC');
+        set_config('organizationid', '54321', 'local_socialcert');
+
+        if (!class_exists('\customcertelement_expiry\element')) {
+            $this->markTestSkipped('The customcertelement_expiry subplugin is not installed on this site.');
+        }
+
+        $scenario = $this->create_expiring_certificate_scenario();
+        $this->setUser($scenario->student);
+        certificate::issue_certificate($scenario->customcert->id, $scenario->student->id);
+
+        $state = main_panel::get_share_state($scenario->customcert->cmid, (int) $scenario->student->id);
+
+        $this->assertGreaterThan(0, $state['expiryts'], 'The activity carries an expiry element.');
+
+        $params = self::query_params($state['shareurl']);
+
+        $this->assertSame(date('Y', $state['expiryts']), $params['expirationYear']);
+        $this->assertSame(date('n', $state['expiryts']), $params['expirationMonth']);
+    }
+
+    /**
+     * MDL-UNIT-002: a certificate without expiry element sends no expiration to LinkedIn.
+     *
+     * This is also the behaviour when the customcertelement_expiry subplugin is not installed at
+     * all: the panel keeps working and reports no expiry instead of failing.
+     */
+    public function test_panel_sends_no_expiry_for_a_certificate_without_an_expiry_element(): void {
+        $this->resetAfterTest();
+        $this->setTimezone('UTC', 'UTC');
+        set_config('organizationid', '54321', 'local_socialcert');
+
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $customcert = $generator->create_module('customcert', ['course' => $course->id, 'name' => 'AI Fundamentals']);
+        $student = $generator->create_user();
+        $generator->enrol_user($student->id, $course->id, 'student');
+        $this->setUser($student);
+
+        certificate::issue_certificate($customcert->id, $student->id);
+
+        $state = main_panel::get_share_state($customcert->cmid, (int) $student->id);
+
+        $this->assertSame(0, $state['expiryts']);
+
+        $params = self::query_params($state['shareurl']);
+
+        $this->assertArrayNotHasKey('expirationYear', $params);
+        $this->assertArrayNotHasKey('expirationMonth', $params);
+    }
+
+    /**
+     * Creates a course with a certificate whose template carries an expiry element and a student.
+     *
+     * The expiry element is added to the template of the activity the same way the module editor
+     * does it, so the subplugin resolves the date from the issue of the user.
+     *
+     * @return \stdClass Object with the course, customcert and student records.
+     */
+    private function create_expiring_certificate_scenario(): \stdClass {
+        global $DB;
+
+        $generator = $this->getDataGenerator();
+
+        $course = $generator->create_course();
+        $customcert = $generator->create_module('customcert', [
+            'course' => $course->id,
+            'name'   => 'AI Fundamentals',
+        ]);
+        $student = $generator->create_user();
+        $generator->enrol_user($student->id, $course->id, 'student');
+
+        $pageid = $DB->get_field('customcert_pages', 'id', ['templateid' => $customcert->templateid], MUST_EXIST);
+        $DB->insert_record('customcert_elements', (object) [
+            'pageid'       => $pageid,
+            'name'         => 'Expiry',
+            'element'      => 'expiry',
+            // The subplugin stores its form data json encoded, exactly as save_unique_data() does:
+            // dateitem -8 is the relative expiry "one year", counted from the award date.
+            'data'         => json_encode([
+                'dateitem'   => '-8',
+                'dateformat' => 1,
+                'startfrom'  => 'award',
+            ]),
+            'font'         => 'freeserif',
+            'fontsize'     => 12,
+            'colour'       => '#000000',
+            'posx'         => 10,
+            'posy'         => 10,
+            'width'        => 0,
+            'refpoint'     => 0,
+            'alignment'    => 'L',
+            'sequence'     => 1,
+            'timecreated'  => time(),
+            'timemodified' => time(),
+        ]);
+
+        return (object) [
+            'course'     => $course,
+            'customcert' => $customcert,
+            'student'    => $student,
+        ];
     }
 
     /**

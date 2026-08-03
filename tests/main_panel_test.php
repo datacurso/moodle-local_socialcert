@@ -28,8 +28,6 @@ namespace local_socialcert;
 use local_socialcert\output\main_panel;
 use mod_customcert\certificate;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Tests for main_panel::export_for_template().
  *
@@ -44,7 +42,6 @@ defined('MOODLE_INTERNAL') || die();
  * @covers      \local_socialcert\output\main_panel
  */
 final class main_panel_test extends \advanced_testcase {
-
     /**
      * MDL-INT-003: with an issued certificate the share action is active, targets the
      * LinkedIn form and carries the credential of the session user.
@@ -100,6 +97,10 @@ final class main_panel_test extends \advanced_testcase {
 
     /**
      * MDL-INT-003: without an issued certificate the panel exports the error notice text.
+     *
+     * The notice used to be the generic 'certerror' string. Since the panel is only injected for
+     * users who can receive the certificate (MDL-INT-007), a missing issue is always actionable, so
+     * the exported notice is now the 'certerrordownload' string, which names that action.
      */
     public function test_missing_issue_exports_the_certificate_error_notice(): void {
         $this->resetAfterTest();
@@ -111,7 +112,7 @@ final class main_panel_test extends \advanced_testcase {
 
         $this->assertTrue($data['issued']);
         $this->assertNotEmpty($data['certerror']);
-        $this->assertSame(get_string('certerror', 'local_socialcert'), $data['certerror']);
+        $this->assertSame(get_string('certerrordownload', 'local_socialcert'), $data['certerror']);
     }
 
     /**
@@ -152,13 +153,47 @@ final class main_panel_test extends \advanced_testcase {
      * obtain the certificate) from the non actionable one (the user never receives a
      * certificate in this activity).
      *
-     * [Pendiente:skip] A single 'certerror' string is exported for both situations, so there is
-     * no exported data that could tell them apart. Clarity improvement pending.
+     * Previously skipped because a single generic 'certerror' string was exported for every
+     * situation. The three situations of the case are told apart now:
+     *
+     * - Actionable: the user can obtain the certificate and has to download it, which the notice
+     *   states explicitly.
+     * - Foreign to the user: the certificate is already issued and what is missing is the LinkedIn
+     *   organization ID of the site, which only the administrator can configure.
+     * - Non actionable: a user who cannot receive the certificate never gets the panel injected at
+     *   all (MDL-INT-007), so no notice is rendered for them.
      */
     public function test_error_notice_distinguishes_actionable_from_non_actionable_situations(): void {
-        $this->markTestSkipped(
-            'main_panel exports the single certerror string for every missing-issue situation, ' .
-            'so actionable and non actionable cases cannot be distinguished. Pending improvement.'
+        $this->resetAfterTest();
+
+        set_config('organizationid', '12345', 'local_socialcert');
+
+        $scenario = $this->create_certificate_scenario('Machine Learning 101', 'AI Fundamentals');
+        $this->setUser($scenario->student);
+
+        // The actionable situation names the action, instead of only stating that the certificate is
+        // missing.
+        $data = $this->export_panel($scenario->customcert->cmid);
+        $this->assertSame(get_string('certerrordownload', 'local_socialcert'), $data['certerror']);
+        $this->assertNotSame(get_string('certerror', 'local_socialcert'), $data['certerror']);
+        $this->assertStringContainsStringIgnoringCase('download', $data['certerror']);
+
+        // With the certificate already issued and the organization ID missing the notice points at
+        // the site configuration instead of asking again for a certificate that already exists.
+        certificate::issue_certificate($scenario->customcert->id, $scenario->student->id);
+        set_config('organizationid', '', 'local_socialcert');
+        $data = $this->export_panel($scenario->customcert->cmid);
+        $this->assertTrue($data['issued'], 'The share action stays disabled without the organization ID.');
+        $this->assertSame(get_string('certerrornoorg', 'local_socialcert'), $data['certerror']);
+
+        // And the non actionable situation is out of reach: a user who cannot receive the
+        // certificate never gets the panel injected, so no notice is rendered for them at all.
+        $teacher = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($teacher->id, $scenario->course->id, 'editingteacher');
+        $context = \context_module::instance($scenario->customcert->cmid);
+        $this->assertFalse(
+            has_capability('mod/customcert:receiveissue', $context, $teacher),
+            'A teacher cannot receive the certificate, so the panel is never rendered for them.'
         );
     }
 
@@ -263,28 +298,95 @@ final class main_panel_test extends \advanced_testcase {
      * MDL-INT-004: names containing an ampersand reach the panel, the AI service and LinkedIn
      * with a single, correctly decoded ampersand.
      *
-     * [Pendiente:skip] format_string() escapes the ampersand to '&amp;' and the Mustache
-     * template escapes it a second time, so 'Data &amp; Skills' arrives at LinkedIn and at the
-     * AI service as 'Data &amp;amp; Skills'. Known gap.
+     * Previously skipped: format_string() escaped the ampersand into '&amp;' and the Mustache
+     * template escaped it again, so 'Data & Skills' arrived at LinkedIn and at the AI service as
+     * 'Data &amp;amp; Skills'. The panel now asks the filters not to escape and decodes whatever
+     * entity the text cleaning leaves behind, so the transported value is the readable text and the
+     * escaping happens once, in the template that renders it.
+     *
+     * Both values of $CFG->formatstringstriptags are covered because they take different code paths
+     * inside format_string(): with the tags stripped nothing is cleaned afterwards, while otherwise
+     * clean_text() escapes the ampersand again on its own.
+     *
+     * @dataProvider striptags_provider
+     * @param int $striptags Value of the formatstringstriptags site setting.
      */
-    public function test_names_containing_an_ampersand_are_exported_without_double_escaping(): void {
-        $this->markTestSkipped(
-            'format_string() returns the ampersand already escaped as &amp; and the Mustache ' .
-            'template escapes it again, so the name reaches LinkedIn and the AI service with a ' .
-            'doubly escaped entity. Known gap.'
-        );
+    public function test_names_containing_an_ampersand_are_exported_without_double_escaping(int $striptags): void {
+        global $CFG;
+        $this->resetAfterTest();
+
+        $CFG->formatstringstriptags = $striptags;
+        set_config('organizationid', '12345', 'local_socialcert');
+
+        $scenario = $this->create_certificate_scenario('Research & Development', 'Data & Skills');
+        $this->setUser($scenario->student);
+        certificate::issue_certificate($scenario->customcert->id, $scenario->student->id);
+
+        $data = $this->export_panel($scenario->customcert->cmid);
+
+        // The data transported to the AI service carries the readable name.
+        $this->assertSame('Data & Skills', $data['certname']);
+        $this->assertSame('Research & Development', $data['course']);
+        $this->assertStringNotContainsString('&amp;', $data['certname']);
+        $this->assertStringNotContainsString('&amp;', $data['course']);
+
+        // And so does the name that travels inside the LinkedIn URL.
+        $params = self::query_params($data['shareurl']);
+        $this->assertSame('Data & Skills', $params['name']);
+        $this->assertStringNotContainsString('amp%3B', $data['shareurl']);
+    }
+
+    /**
+     * Values of the formatstringstriptags setting that take different paths inside format_string().
+     *
+     * @return array[]
+     */
+    public static function striptags_provider(): array {
+        return [
+            'names stripped of tags' => [1],
+            'names cleaned as html' => [0],
+        ];
     }
 
     /**
      * MDL-INT-004: the post preview shows the real profile picture of the session user.
      *
-     * [Pendiente:skip] export_for_template() never exports an author avatar URL, so the
-     * template always falls back to the generic silhouette. Known gap.
+     * Previously skipped: export_for_template() exported no author avatar URL, so the preview
+     * always fell back to the generic silhouette. The panel now exports the URL built by the public
+     * user picture API of Moodle whenever the user really has a picture.
      */
     public function test_preview_exports_the_real_user_profile_picture(): void {
-        $this->markTestSkipped(
-            'export_for_template() exports no author_avatar_url key, so the preview always ' .
-            'renders the generic silhouette instead of the real user picture. Known gap.'
+        $this->resetAfterTest();
+
+        $scenario = $this->create_certificate_scenario('Machine Learning 101', 'AI Fundamentals');
+        $student = $this->getDataGenerator()->create_user(['picture' => 1]);
+        $this->getDataGenerator()->enrol_user($student->id, $scenario->course->id, 'student');
+        $this->setUser($student);
+        certificate::issue_certificate($scenario->customcert->id, $student->id);
+
+        $data = $this->export_panel($scenario->customcert->cmid);
+
+        $this->assertNotEmpty($data['author_avatar_url'], 'The preview must show the real picture of the user.');
+        $this->assertStringContainsString('/user/icon/', $data['author_avatar_url']);
+        $this->assertStringContainsString('rev=1', $data['author_avatar_url']);
+    }
+
+    /**
+     * MDL-INT-004: the generic silhouette is only a fallback, used when the user has no picture.
+     */
+    public function test_preview_exports_no_avatar_url_when_the_user_has_no_picture(): void {
+        $this->resetAfterTest();
+
+        $scenario = $this->create_certificate_scenario('Machine Learning 101', 'AI Fundamentals');
+        $this->setUser($scenario->student);
+        certificate::issue_certificate($scenario->customcert->id, $scenario->student->id);
+
+        $data = $this->export_panel($scenario->customcert->cmid);
+
+        $this->assertSame(
+            '',
+            $data['author_avatar_url'],
+            'Without a picture the panel exports no URL, so the template draws the silhouette.'
         );
     }
 
@@ -292,9 +394,9 @@ final class main_panel_test extends \advanced_testcase {
      * MDL-INT-016: with an empty LinkedIn organization ID setting the share action must be
      * disabled, exactly as the setting help text promises.
      *
-     * [Pendiente:fail] The builder falls back to the generic organization ID '1337', so the
-     * credential would be published attributed to a third party organization. This test
-     * asserts the correct behaviour and MUST fail until the fallback is removed.
+     * The builder used to fall back to the generic organization ID '1337', so the credential was
+     * published attributed to a third party organization. The fallback is gone: without the
+     * setting there is no URL and the panel renders its disabled state.
      */
     public function test_share_action_is_disabled_when_the_organization_id_is_not_configured(): void {
         $this->resetAfterTest();
@@ -315,6 +417,42 @@ final class main_panel_test extends \advanced_testcase {
             $data['issued'],
             'The panel must render its disabled state while the organization ID setting is empty.'
         );
+        $this->assertSame(
+            get_string('certerrornoorg', 'local_socialcert'),
+            $data['certerror'],
+            'With the certificate issued the notice must point at the missing site configuration.'
+        );
+    }
+
+    /**
+     * MDL-E2E-006: the panel exports the accessible names of the assistant controls.
+     *
+     * The template used the aibuttonlabel and copytextlabel variables the renderable never
+     * exported, so the assistant button had no accessible name and the copy button had an empty
+     * one, and it carried three labels hardcoded in Spanish. All of them are language strings now.
+     */
+    public function test_panel_exports_the_accessible_names_of_the_assistant_controls(): void {
+        $this->resetAfterTest();
+
+        $scenario = $this->create_certificate_scenario('Machine Learning 101', 'AI Fundamentals');
+        $this->setUser($scenario->student);
+
+        $data = $this->export_panel($scenario->customcert->cmid);
+
+        // The label of the assistant button is the same string amd/src/actions.js restores after a
+        // generation, so the accessible name of the control is stable.
+        $this->assertSame(get_string('airesponsebtn', 'local_socialcert'), $data['aibuttonlabel']);
+        $this->assertSame(get_string('copytextlabel', 'local_socialcert'), $data['copytextlabel']);
+        $this->assertSame(get_string('ailogoalt', 'local_socialcert'), $data['ailogoalt']);
+        $this->assertSame(get_string('airegionlabel', 'local_socialcert'), $data['airegionlabel']);
+        $this->assertSame(
+            get_string('avatarlabel', 'local_socialcert', $data['author_name']),
+            $data['avatarlabel']
+        );
+
+        foreach (['aibuttonlabel', 'copytextlabel', 'ailogoalt', 'airegionlabel', 'avatarlabel'] as $key) {
+            $this->assertNotEmpty($data[$key], "The '{$key}' accessible name must not be empty.");
+        }
     }
 
     /**

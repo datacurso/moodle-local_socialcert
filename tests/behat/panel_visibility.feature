@@ -5,7 +5,7 @@ Feature: Share panel injection scope and share button states
   I need the panel to appear only on the certificate view and to reflect my own issue
 
   # Scenarios tagged @skip_pending describe behaviour required by the test case definition
-  # that the plugin does not implement yet ([Pendiente:skip] in socialcert-1.1.2.md). Their
+  # that the plugin does not implement yet ([Pendiente:skip] in socialcert-1.1.3.md). Their
   # steps are deliberately commented out so no scenario can ever report a known defect as
   # correct behaviour. Exclude them explicitly when running the suite:
   #   --tags="@local_socialcert&&~@skip_pending"
@@ -76,7 +76,7 @@ Feature: Share panel injection scope and share button states
     And the "tabindex" attribute of "a#btn-normal" "css_element" should contain "-1"
     And "div.local-socialcert[data-network='linkedin']" "css_element" should not exist
     And "div.lsc-error-message" "css_element" should exist
-    And I should see "You’ll need to have an issued certificate before you can share it on LinkedIn."
+    And I should see "Get your certificate first: download it from this page to enable sharing it on LinkedIn."
 
   # Step 4 of MDL-INT-003: the panel state must depend exclusively on the issue of the user in
   # session, with no leak between users of the same activity.
@@ -89,52 +89,52 @@ Feature: Share panel injection scope and share button states
     And I am on the "Course certificate" "customcert activity" page logged in as "student2"
     And "a#btn-normal.disabled" "css_element" should exist
     And "div.lsc-error-message" "css_element" should exist
-    And I should see "You’ll need to have an issued certificate before you can share it on LinkedIn."
+    And I should see "Get your certificate first: download it from this page to enable sharing it on LinkedIn."
 
-  # [Pendiente:skip] MDL-INT-006 — the panel is currently injected, in error state, on the
-  # required-time notice page and on the issue deletion confirmation page, where sharing makes
-  # no sense. Steps commented out on purpose so the defect is not recorded as correct.
-  @MDL-INT-006 @skip_pending
-  Scenario: Panel is not injected on the intermediate pages of the certificate activity
-    Given this scenario is pending because "MDL-INT-006 [Pendiente:skip]: the panel is currently injected in error state on the required time notice page and on the issue deletion confirmation page"
-    # And the following "activities" exist:
-    #   | activity   | name              | course | idnumber | requiredtime |
-    #   | customcert | Timed certificate | C1     | cert2    | 1            |
-    # And the following "users" exist:
-    #   | username | firstname | lastname | email                |
-    #   | teacher1 | Teacher   | One      | teacher1@example.com |
-    # And the following "course enrolments" exist:
-    #   | user     | course | role           |
-    #   | teacher1 | C1     | editingteacher |
-    # When I am on the "Timed certificate" "customcert activity" page logged in as "student1"
-    # Then I should see "You must spend at least a minimum of"
-    # And "div.local-socialcert" "css_element" should not exist
-    # And I am on the "Course certificate" "customcert activity" page logged in as "student1"
-    # And I press "View certificate"
-    # And I am on the "Course certificate" "customcert activity" page logged in as "teacher1"
-    # And I click on ".delete-icon" "css_element" in the "Student One" "table_row"
-    # And "div.local-socialcert" "css_element" should not exist
+  # Step 1 of MDL-INT-006: the required time notice replaces the whole activity page, so sharing
+  # there makes no sense. The panel now evaluates the same conditions mod/customcert/view.php does.
+  @MDL-INT-006
+  Scenario: Panel is not injected on the required time notice page
+    Given the following "activities" exist:
+      | activity   | name              | intro            | course | idnumber | requiredtime |
+      | customcert | Timed certificate | Timed cert intro | C1     | cert2    | 1            |
+    When I am on the "Timed certificate" "customcert activity" page logged in as "student1"
+    Then I should see "You must spend at least a minimum of"
+    And "div.local-socialcert" "css_element" should not exist
+    And I am on the "Course certificate" "customcert activity" page
+    And "div.local-socialcert" "css_element" should exist
 
-  # [Pendiente:skip] MDL-INT-007 — the panel is rendered for every authenticated user; there is
-  # no capability nor receiveissue check in hook_callbacks, so teachers and managers also see it
-  # (in error state) below the issues report. Steps commented out on purpose.
-  @MDL-INT-007 @skip_pending
+  # Step 2 of MDL-INT-006: the issue deletion confirmation is only reachable by a user who can
+  # manage the activity. Teachers and managers no longer get the panel at all (MDL-INT-007), so the
+  # case is exercised with the administrator, who holds every capability.
+  @MDL-INT-006
+  Scenario: Panel is not injected on the issue deletion confirmation page
+    Given I am on the "Course certificate" "customcert activity" page logged in as "student1"
+    And I press "View certificate"
+    When I am on the "Course certificate" "customcert activity" page logged in as "admin"
+    Then "div.local-socialcert" "css_element" should exist
+    And I click on ".delete-icon" "css_element" in the "Student One" "table_row"
+    And I should see "Are you sure you want to delete this certificate issue?"
+    And "div.local-socialcert" "css_element" should not exist
+
+  @MDL-INT-007
   Scenario: Panel is only shown to users who can receive the certificate
-    Given this scenario is pending because "MDL-INT-007 [Pendiente:skip]: hook_callbacks renders the panel for every authenticated non guest user; there is no capability or receiveissue check, so teachers and managers also see it"
-    # And the following "users" exist:
-    #   | username | firstname | lastname | email                |
-    #   | teacher1 | Teacher   | One      | teacher1@example.com |
-    #   | manager1 | Manager   | One      | manager1@example.com |
-    # And the following "course enrolments" exist:
-    #   | user     | course | role           |
-    #   | teacher1 | C1     | editingteacher |
-    # And the following "role assigns" exist:
-    #   | user     | role    | contextlevel | reference |
-    #   | manager1 | manager | System       |           |
-    # When I am on the "Course certificate" "customcert activity" page logged in as "teacher1"
-    # Then "div.local-socialcert" "css_element" should not exist
-    # And I am on the "Course certificate" "customcert activity" page logged in as "manager1"
-    # And "div.local-socialcert" "css_element" should not exist
+    Given the following "users" exist:
+      | username | firstname | lastname | email                |
+      | teacher1 | Teacher   | One      | teacher1@example.com |
+      | manager1 | Manager   | One      | manager1@example.com |
+    And the following "course enrolments" exist:
+      | user     | course | role           |
+      | teacher1 | C1     | editingteacher |
+    And the following "role assigns" exist:
+      | user     | role    | contextlevel | reference |
+      | manager1 | manager | System       |           |
+    When I am on the "Course certificate" "customcert activity" page logged in as "teacher1"
+    Then "div.local-socialcert" "css_element" should not exist
+    And I am on the "Course certificate" "customcert activity" page logged in as "manager1"
+    And "div.local-socialcert" "css_element" should not exist
+    And I am on the "Course certificate" "customcert activity" page logged in as "student1"
+    And "div.local-socialcert" "css_element" should exist
 
   # [Pendiente:skip] MDL-E2E-005 — the panel exists only on the web view of the certificate
   # activity. There is no panel on the "My certificates" profile page and no mobile app support.

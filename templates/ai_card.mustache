@@ -1,0 +1,160 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_socialcert/ai_card
+
+    AI assistant card of the Social Certificate panel.
+
+    Composes the post text of the credential with the Datacurso AI service. The card demands an
+    issued certificate, so it is rendered by local_socialcert/main only inside its enableai
+    section, and by amd/src/actions.js only when local_socialcert_get_share_state reports the
+    assistant as available for the user in session. Keeping it in its own template is what lets
+    the browser add it after the certificate has just been issued without duplicating any markup
+    in JavaScript.
+
+    Context variables required for this template:
+    * aibuttonid string - DOM id of the button that starts the generation.
+    * responseid string - DOM id of the container the generated text is streamed into.
+    * cmid int - Course module ID of the certificate activity.
+    * author_name string - Full name of the user in session, shown in the post preview.
+    * certname string - Name of the issued certificate.
+    * course string - Full name of the course the certificate belongs to.
+    * org string - Name of the issuing organization.
+    * shareurl string - LinkedIn add-to-profile URL of the credential.
+    * socialmedia string - Social network the post is written for.
+    * imageurl string - URL of the assistant logo.
+    * imagelogo string - URL of the background image of the assistant button.
+    * ai_actioncall string - Call to action of the assistant.
+    * aibuttonlabel string - Accessible name of the button that starts the generation.
+    * ailogoalt string - Alternative text of the assistant logo.
+    * airegionlabel string - Accessible name of the region of the assistant.
+    * avatarlabel string - Accessible name of the profile picture shown in the post preview.
+    * copytextlabel string - Accessible name of the button that copies the generated text.
+    * errorcredits string - Message shown when the licence has no AI credits left.
+    * errorlicense string - Message shown when the licence is not allowed to generate.
+    * errorgeneric string - Message shown when the generation fails for any other reason.
+
+    Context variables optional for this template:
+    * author_avatar_url string - URL of the profile picture of the user in session. When it is empty
+      the preview draws a generic silhouette instead.
+
+    Example context (json):
+    {
+        "aibuttonid": "btn-ai",
+        "responseid": "ai-response",
+        "cmid": 42,
+        "author_name": "Jane Doe",
+        "author_avatar_url": "https://example.com/u/jane.jpg",
+        "certname": "AI Fundamentals",
+        "course": "Machine Learning 101",
+        "org": "Buen Data",
+        "shareurl": "https://www.linkedin.com/profile/add?name=AI%20Fundamentals",
+        "socialmedia": "LinkedIn",
+        "imageurl": "https://example.com/local/socialcert/assets/logo_title.png",
+        "imagelogo": "https://example.com/local/socialcert/assets/logo.png",
+        "ai_actioncall": "Create a professional message for your LinkedIn post in one click",
+        "aibuttonlabel": "Activate AI",
+        "ailogoalt": "Datacurso logo",
+        "airegionlabel": "AI assistant to draft your post",
+        "avatarlabel": "Profile picture of Jane Doe",
+        "copytextlabel": "Copy the generated text",
+        "errorcredits": "Insufficient AI credits.",
+        "errorlicense": "Your license is not allowed to perform this request.",
+        "errorgeneric": "An error occurred while generating the content."
+    }
+}}
+<div class="lsc-response-wrap">
+  <div class="bd-post" data-ai-composer>
+    <div class="ai-bar" role="region" aria-label="{{airegionlabel}}">
+      <img src="{{imageurl}}" alt="{{ailogoalt}}" class="logo-datacurso">
+      <p class="ai-bar__text" id="ai-bar-text-{{cmid}}">{{ai_actioncall}}</p>
+
+      <div class="ai-bar__btn-container">
+        <button
+          type="button"
+          class="ai-bar__button"
+          aria-describedby="ai-bar-text-{{cmid}}"
+          id="{{aibuttonid}}"
+          style="{{#imagelogo}}background-image: url('{{imagelogo}}');{{/imagelogo}}"
+          data-action="run-ai"
+          data-target="#{{responseid}}"
+          data-mode="word"
+          data-speed="40"
+          data-certname="{{certname}}"
+          data-course="{{course}}"
+          data-org="{{org}}"
+          data-certurl="{{shareurl}}"
+          data-socialmedia="{{socialmedia}}"
+          data-errorlicense="{{errorlicense}}"
+          data-errorcredits="{{errorcredits}}"
+          data-errorgeneric="{{errorgeneric}}">
+          {{aibuttonlabel}}
+        </button>
+      </div>
+
+      <div class="ai-bar__panel" aria-hidden="true">
+        <div class="bd-post__content" aria-hidden="true">
+          <header class="bd-post__header">
+            <div class="bd-avatar" aria-label="{{avatarlabel}}" role="img">
+              {{#author_avatar_url}}
+                <img class="bd-avatar__img" src="{{author_avatar_url}}" alt="" width="48" height="48" loading="lazy">
+              {{/author_avatar_url}}
+              {{^author_avatar_url}}
+                <svg class="bd-avatar__svg" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+                  <circle cx="32" cy="32" r="30" class="bd-avatar__bg"/>
+                  <circle cx="32" cy="24" r="12" class="bd-avatar__head"/>
+                  <path class="bd-avatar__bust" d="M10 52c2.6-10.4 11.6-16 22-16s19.4 5.6 22 16v2H10z"/>
+                </svg>
+              {{/author_avatar_url}}
+            </div>
+            <div class="bd-author">
+              <strong class="bd-author__name">{{author_name}}</strong>
+            </div>
+          </header>
+
+          <main class="bd-post__main">
+            <div class="bd-message">
+
+              <div id="ai-card" class="skeleton-card" aria-busy="true" aria-live="polite">
+                <div class="skeleton" aria-hidden="true">
+                  <div class="sk-row w-90"></div>
+                  <div class="sk-row w-40"></div>
+                  <div class="sk-row w-80"></div>
+                </div>
+              </div>
+
+              <div id="{{responseid}}" class="bd-message__text" aria-live="polite"></div>
+
+              <div id="copyBtn" class="bd-message__cn-copy" hidden>
+                <button type="button"
+                  class="bd-message__btn-copy"
+                  aria-label="{{copytextlabel}}"
+                  title="{{copytextlabel}}"
+                  data-action="copy-html"
+                  data-target="#{{responseid}}">
+                  <svg class="bd-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path d="M16 1H4a2 2 0 0 0-2 2v12h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

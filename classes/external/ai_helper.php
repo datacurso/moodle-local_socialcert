@@ -24,16 +24,12 @@
 
 namespace local_socialcert\external;
 
-defined('MOODLE_INTERNAL') || die();
-
-global $CFG;
-require_once("$CFG->libdir/externallib.php");
-
-use external_api;
-use external_function_parameters;
-use external_single_structure;
-use external_value;
+use core_external\external_api;
+use core_external\external_function_parameters;
+use core_external\external_single_structure;
+use core_external\external_value;
 use aiprovider_datacurso\httpclient\ai_services_api;
+use local_socialcert\event\ai_text_generated;
 
 /**
  * External API helper for AI-based certificate generation.
@@ -74,15 +70,24 @@ class ai_helper extends external_api {
     /**
      * Executes the external API request to generate AI certificate content.
      *
-     * Validates input parameters, sends a POST request to the external AI service,
-     * and returns the response JSON as a string. If the response is not an array
-     * or object, it is wrapped into a JSON object with a "text" key.
+     * Validates input parameters, revalidates the business rules that govern the AI assistant,
+     * sends a POST request to the external AI service, and returns the response JSON as a string.
+     * If the response is not an array or object, it is wrapped into a JSON object with a
+     * "text" key.
+     *
+     * The business rules are revalidated here, and not only in the panel, because hiding the AI
+     * card in the interface does not stop a direct call to the web service from spending credits.
+     *
+     * A generation the service really answered fires \local_socialcert\event\ai_text_generated, so
+     * the consumption of the assistant is traceable in the logs of the platform.
      *
      * @param array $body The body data containing certificate information.
      * @param array $cmid The body data containing certificate information.
      * @return array An associative array with a 'json' key holding the API response.
      */
     public static function execute($body, $cmid) {
+        global $DB, $USER;
+
         $params = self::validate_parameters(self::execute_parameters(), ['body' => $body, 'cmid' => $cmid]);
 
         try {
@@ -93,15 +98,44 @@ class ai_helper extends external_api {
             self::validate_context($context);
             require_capability('mod/customcert:view', $context);
 
+            // The capability of the assistant is revalidated here for the same reason the rest of
+            // the rules are: hiding the card in the interface does not stop a direct call to the web
+            // service from spending credits.
+            require_capability('local/socialcert:useaiassistant', $context);
+
+            if (!((int) get_config('local_socialcert', 'enableai'))) {
+                throw new \moodle_exception('aidisabled', 'local_socialcert');
+            }
+
+            $cm = get_coursemodule_from_id('', $params['cmid'], 0, false, MUST_EXIST);
+            if ($cm->modname !== 'customcert') {
+                throw new \moodle_exception('notacertificateactivity', 'local_socialcert');
+            }
+
+            $hasissue = $DB->record_exists('customcert_issues', [
+                'customcertid' => $cm->instance,
+                'userid'       => $USER->id,
+            ]);
+            if (!$hasissue) {
+                throw new \moodle_exception('nocertificateissued', 'local_socialcert');
+            }
+
             $body   = $params['body'];
 
-            $client   = new ai_services_api();
+            $client   = static::get_ai_client();
             $response = $client->request('POST', '/certificate/answer', $body);
             if (is_array(value: $response) || is_object(value: $response)) {
                 $json = json_encode(value: $response, flags: JSON_UNESCAPED_UNICODE);
             } else {
                 $json = json_encode(value: ['text' => (string)$response], flags: JSON_UNESCAPED_UNICODE);
             }
+
+            // Only a generation the service really answered is traced, so the log records the calls
+            // that consumed credits and never the ones the plugin or the provider rejected.
+            ai_text_generated::create([
+                'context' => $context,
+                'other'   => ['socialmedia' => (string) $body['socialmedia']],
+            ])->trigger();
 
             return ['json' => $json];
         } catch (\Exception $e) {
@@ -120,6 +154,21 @@ class ai_helper extends external_api {
     }
 
     /**
+     * Builds the HTTP client the generation is requested through.
+     *
+     * The client is obtained from this factory, and not with a direct instantiation inside
+     * execute(), because its constructor already performs a network request (it asks the token
+     * manager which region the licence belongs to). Without this seam the successful path of the
+     * function, and therefore the event it fires, could not be exercised without real network
+     * access. It is protected and late bound on purpose: only a subclass can substitute the client.
+     *
+     * @return ai_services_api Client of the Datacurso AI services API.
+     */
+    protected static function get_ai_client(): ai_services_api {
+        return new ai_services_api();
+    }
+
+    /**
      * Defines the return structure for the external function.
      *
      * Returns a single JSON string representing the AI-generated response
@@ -131,7 +180,10 @@ class ai_helper extends external_api {
         return new external_single_structure([
             'ok' => new external_value(PARAM_BOOL, 'Response status from server', VALUE_OPTIONAL),
             'message' => new external_value(PARAM_RAW, 'Response message from server', VALUE_OPTIONAL),
-            'errorcode' => new external_value(PARAM_ALPHANUMEXT, 'Moodle exception errorcode when the request failed', VALUE_OPTIONAL),
+            // PARAM_TEXT and not PARAM_ALPHANUMEXT: real provider codes contain spaces (for
+            // instance 'API baseurl or licensekey not configured'), and the stricter type dropped
+            // them while cleaning the response, so the panel lost the specific message.
+            'errorcode' => new external_value(PARAM_TEXT, 'Moodle exception errorcode when the request failed', VALUE_OPTIONAL),
             'json' => new external_value(PARAM_RAW, 'Respuesta JSON de la API externa', VALUE_OPTIONAL),
         ]);
     }
