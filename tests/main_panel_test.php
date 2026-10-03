@@ -25,8 +25,13 @@
 
 namespace local_socialcert;
 
+use local_socialcert\fixtures\customcert_dependency_trait;
 use local_socialcert\output\main_panel;
 use mod_customcert\certificate;
+
+defined('MOODLE_INTERNAL') || die();
+
+require_once(__DIR__ . '/fixtures/customcert_dependency_trait.php');
 
 /**
  * Tests for main_panel::export_for_template().
@@ -42,6 +47,8 @@ use mod_customcert\certificate;
  * @covers      \local_socialcert\output\main_panel
  */
 final class main_panel_test extends \advanced_testcase {
+    use customcert_dependency_trait;
+
     /**
      * MDL-INT-003: with an issued certificate the share action is active, targets the
      * LinkedIn form and carries the credential of the session user.
@@ -463,6 +470,7 @@ final class main_panel_test extends \advanced_testcase {
      * @return \stdClass Object with the course, customcert and student records.
      */
     private function create_certificate_scenario(string $coursename, string $certname): \stdClass {
+        $this->require_customcert();
         $generator = $this->getDataGenerator();
 
         $course = $generator->create_course(['fullname' => $coursename]);

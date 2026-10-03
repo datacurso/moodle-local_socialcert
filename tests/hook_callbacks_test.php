@@ -26,7 +26,12 @@
 namespace local_socialcert;
 
 use core\hook\output\before_footer_html_generation;
+use local_socialcert\fixtures\customcert_dependency_trait;
 use mod_customcert\certificate;
+
+defined('MOODLE_INTERNAL') || die();
+
+require_once(__DIR__ . '/fixtures/customcert_dependency_trait.php');
 
 /**
  * Tests for local_socialcert\hook_callbacks.
@@ -41,11 +46,14 @@ use mod_customcert\certificate;
  * @covers      \local_socialcert\hook_callbacks
  */
 final class hook_callbacks_test extends \advanced_testcase {
+    use customcert_dependency_trait;
+
     /**
      * MDL-INT-002: the panel is injected at the end of the activity view for an authenticated
      * non guest user when the page has an associated course module.
      */
     public function test_panel_is_injected_on_the_certificate_view_for_an_authenticated_user(): void {
+        $this->require_customcert();
         $this->resetAfterTest();
 
         set_config('organizationid', '12345', 'local_socialcert');
@@ -71,6 +79,7 @@ final class hook_callbacks_test extends \advanced_testcase {
      * MDL-INT-002: the panel is not injected for guest users.
      */
     public function test_panel_is_not_injected_for_guest_users(): void {
+        $this->require_customcert();
         $this->resetAfterTest();
 
         set_config('organizationid', '12345', 'local_socialcert');
@@ -93,6 +102,7 @@ final class hook_callbacks_test extends \advanced_testcase {
      * issues report, because the page type does not match the activity view.
      */
     public function test_panel_is_not_injected_on_other_pages_of_the_same_activity(): void {
+        $this->require_customcert();
         $this->resetAfterTest();
 
         set_config('organizationid', '12345', 'local_socialcert');
@@ -221,6 +231,7 @@ final class hook_callbacks_test extends \advanced_testcase {
      * underneath it. The callback now demands mod/customcert:receiveissue.
      */
     public function test_panel_is_not_injected_for_a_user_who_cannot_receive_the_certificate(): void {
+        $this->require_customcert();
         $this->resetAfterTest();
 
         set_config('organizationid', '12345', 'local_socialcert');
@@ -256,6 +267,7 @@ final class hook_callbacks_test extends \advanced_testcase {
      * certificate of the activity.
      */
     public function test_panel_is_injected_for_a_user_who_can_receive_the_certificate(): void {
+        $this->require_customcert();
         $this->resetAfterTest();
 
         set_config('organizationid', '12345', 'local_socialcert');
@@ -287,6 +299,7 @@ final class hook_callbacks_test extends \advanced_testcase {
      * the panel disappears because of the capability alone.
      */
     public function test_panel_is_not_injected_without_the_capability_of_the_plugin(): void {
+        $this->require_customcert();
         $this->resetAfterTest();
 
         set_config('organizationid', '12345', 'local_socialcert');
@@ -329,6 +342,7 @@ final class hook_callbacks_test extends \advanced_testcase {
      */
     public function test_panel_is_not_injected_on_the_required_time_notice_page(): void {
         global $DB;
+        $this->require_customcert();
         $this->resetAfterTest();
 
         set_config('organizationid', '12345', 'local_socialcert');
@@ -366,6 +380,7 @@ final class hook_callbacks_test extends \advanced_testcase {
      * hold every capability, so they both receive certificates and delete issues.
      */
     public function test_panel_is_not_injected_on_the_issue_deletion_confirmation_page(): void {
+        $this->require_customcert();
         $this->resetAfterTest();
 
         set_config('organizationid', '12345', 'local_socialcert');

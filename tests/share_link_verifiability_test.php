@@ -25,8 +25,13 @@
 
 namespace local_socialcert;
 
+use local_socialcert\fixtures\customcert_dependency_trait;
 use local_socialcert\output\main_panel;
 use mod_customcert\certificate;
+
+defined('MOODLE_INTERNAL') || die();
+
+require_once(__DIR__ . '/fixtures/customcert_dependency_trait.php');
 
 /**
  * Tests that the credential link published on LinkedIn is verifiable by third parties.
@@ -46,6 +51,8 @@ use mod_customcert\certificate;
  * @covers      \local_socialcert\output\main_panel
  */
 final class share_link_verifiability_test extends \advanced_testcase {
+    use customcert_dependency_trait;
+
     /**
      * MDL-E2E-003: with the platform default configuration the credential link is not verifiable
      * by an anonymous visitor, so the panel must not publish it, or must export a warning that
@@ -170,6 +177,7 @@ final class share_link_verifiability_test extends \advanced_testcase {
      * @return \stdClass Object with the course, customcert and student records.
      */
     private function create_certificate_scenario(array $options = []): \stdClass {
+        $this->require_customcert();
         $generator = $this->getDataGenerator();
 
         $course = $generator->create_course(['fullname' => 'Machine Learning 101']);

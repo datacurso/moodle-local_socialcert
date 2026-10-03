@@ -5,6 +5,7 @@
 ### 🔧 Changed
 
 - Extend the supported range to Moodle 5.2
+- Skip the PHPUnit tests that build a certificate activity with an explicit message when mod_customcert is not installed, instead of failing inside the data generator
 
 ### 🔒 Security
 

@@ -25,9 +25,14 @@
 
 namespace local_socialcert;
 
+use local_socialcert\fixtures\customcert_dependency_trait;
 use local_socialcert\output\linkedin_helper;
 use local_socialcert\output\main_panel;
 use mod_customcert\certificate;
+
+defined('MOODLE_INTERNAL') || die();
+
+require_once(__DIR__ . '/fixtures/customcert_dependency_trait.php');
 
 /**
  * Tests for the raw construction of the LinkedIn "Add to profile" URL.
@@ -44,6 +49,8 @@ use mod_customcert\certificate;
  * @covers      \local_socialcert\output\main_panel::get_share_state
  */
 final class linkedin_helper_test extends \advanced_testcase {
+    use customcert_dependency_trait;
+
     /** @var string Sample verification URL used across the tests. */
     private const VERIFY_URL = 'https://example.com/mod/customcert/verify_certificate.php?code=ABC1234567';
 
@@ -284,6 +291,7 @@ final class linkedin_helper_test extends \advanced_testcase {
      * all: the panel keeps working and reports no expiry instead of failing.
      */
     public function test_panel_sends_no_expiry_for_a_certificate_without_an_expiry_element(): void {
+        $this->require_customcert();
         $this->resetAfterTest();
         $this->setTimezone('UTC', 'UTC');
         set_config('organizationid', '54321', 'local_socialcert');
@@ -317,6 +325,7 @@ final class linkedin_helper_test extends \advanced_testcase {
      */
     private function create_expiring_certificate_scenario(): \stdClass {
         global $DB;
+        $this->require_customcert();
 
         $generator = $this->getDataGenerator();
 
