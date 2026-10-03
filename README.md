@@ -21,7 +21,7 @@ The plugin does not modify *Custom certificate*: it adds its own panel at the en
 
 ## Prerequisites
 
-* **Moodle 4.5** to **Moodle 5.1**.
+* **Moodle 4.5** to **Moodle 5.2**.
 * **[Custom certificate](https://moodle.org/plugins/mod_customcert)** (`mod_customcert`), minimum version **2024042212**.
 * **[DataCurso AI Provider](https://moodle.org/plugins/aiprovider_datacurso/versions)** (`aiprovider_datacurso`), minimum version **2025100201**, configured with a valid licence key. See [Getting license keys](https://docs.datacurso.com/index.php?title=Datacurso_AI_Provider#Getting_license_keys).
 

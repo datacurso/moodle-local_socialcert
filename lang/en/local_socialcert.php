@@ -50,6 +50,7 @@ $string['eventaitextgenerated'] = 'AI post text generated';
 $string['eventcertificateshared'] = 'Certificate shared on a social network';
 $string['generating'] = 'Generating…';
 $string['invalidcmid'] = 'The activity identifier of the request is not valid.';
+$string['invalidsocialmedia'] = 'The requested social network is not supported by the assistant.';
 $string['linkcertbuttontext'] = 'Share on LinkedIn';
 $string['linktext'] = 'Certificate link';
 $string['nocertificateissued'] = 'You need an issued certificate in this activity before you can generate a post text.';

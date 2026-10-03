@@ -45,6 +45,9 @@ class stub_ai_services_api extends ai_services_api {
     /** @var array[] Requests received by the stub, in order. */
     public array $requests = [];
 
+    /** @var \Throwable|null Failure every request of the stub raises once it has been recorded. */
+    public ?\Throwable $failure = null;
+
     /**
      * Builds the stub without any of the setup of the real client.
      */
@@ -53,15 +56,23 @@ class stub_ai_services_api extends ai_services_api {
     }
 
     /**
-     * Records the request and answers the fixed reply.
+     * Records the request and answers the fixed reply, or raises the configured failure.
+     *
+     * The request is recorded before the failure is raised, exactly like the real client, which
+     * only fails once the service has been contacted.
      *
      * @param string $method HTTP method of the request.
      * @param string $path Path of the endpoint being called.
      * @param array $body Body of the request.
      * @return array|null The fixed reply of the stub.
+     * @throws \Throwable The failure configured by the test, when there is one.
      */
     public function request(string $method, string $path, array $body = []): ?array {
         $this->requests[] = ['method' => $method, 'path' => $path, 'body' => $body];
+
+        if ($this->failure !== null) {
+            throw $this->failure;
+        }
 
         return self::REPLY;
     }

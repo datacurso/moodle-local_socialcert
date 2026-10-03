@@ -43,11 +43,25 @@ use local_socialcert\external\ai_helper;
  */
 class testable_ai_helper extends ai_helper {
     /**
+     * Client handed to every call of the function.
+     *
+     * It is kept here so the test can inspect the requests the function sent and configure the
+     * failure the service answers with. A test replaces it before calling the function.
+     *
+     * @var stub_ai_services_api|null
+     */
+    public static ?stub_ai_services_api $client = null;
+
+    /**
      * Returns the stubbed client instead of the real one.
      *
      * @return ai_services_api Client that answers without reaching the network.
      */
     protected static function get_ai_client(): ai_services_api {
-        return new stub_ai_services_api();
+        if (self::$client === null) {
+            self::$client = new stub_ai_services_api();
+        }
+
+        return self::$client;
     }
 }

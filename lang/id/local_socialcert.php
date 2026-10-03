@@ -50,6 +50,7 @@ $string['eventaitextgenerated'] = 'Teks unggahan dibuat dengan AI';
 $string['eventcertificateshared'] = 'Sertifikat dibagikan di jejaring sosial';
 $string['generating'] = 'Sedang membuat…';
 $string['invalidcmid'] = 'Pengenal aktivitas pada permintaan tidak valid.';
+$string['invalidsocialmedia'] = 'Jejaring sosial yang diminta tidak didukung oleh asisten.';
 $string['linkcertbuttontext'] = 'Bagikan di LinkedIn';
 $string['linktext'] = 'Tautan sertifikat';
 $string['nocertificateissued'] = 'Anda memerlukan sertifikat yang diterbitkan pada aktivitas ini sebelum dapat membuat teks unggahan.';

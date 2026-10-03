@@ -25,11 +25,14 @@
 defined('MOODLE_INTERNAL') || die();
 
 $functions = [
+    // Declared as a write function because every successful call spends the AI credits of the
+    // licence and records the ai_text_generated event. The browser only names the activity and
+    // the social network: the inputs of the prompt are computed on the server.
     'local_socialcert_get_ai_response' => [
         'classname'   => 'local_socialcert\\external\\ai_helper',
         'methodname'  => 'execute',
-        'description' => 'Get AI response from the service.',
-        'type'        => 'read',
+        'description' => 'Generate the AI post text for the certificate of the user in session.',
+        'type'        => 'write',
         'ajax'        => true,
     ],
     'local_socialcert_get_share_state' => [

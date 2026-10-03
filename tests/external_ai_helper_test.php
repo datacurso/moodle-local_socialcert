@@ -22,7 +22,9 @@ use core_external\external_single_structure;
 use core_external\external_value;
 use local_socialcert\event\ai_text_generated;
 use local_socialcert\external\ai_helper;
+use local_socialcert\fixtures\stub_ai_services_api;
 use local_socialcert\fixtures\testable_ai_helper;
+use local_socialcert\output\main_panel;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -38,6 +40,10 @@ require_once($CFG->dirroot . '/webservice/tests/helpers.php');
  * ['ok' => false, 'message' => ...] payload, so rejections are asserted on the returned
  * array instead of with expectException(). Only malformed parameters still throw, because
  * validate_parameters() runs outside the try block.
+ *
+ * Since version 1.1.4 the browser only names the activity and the social network: the inputs of
+ * the prompt (certificate, course and organization) are computed on the server from the same
+ * source the panel renders them from, so no caller can feed the AI service arbitrary text.
  *
  * @package    local_socialcert
  * @category   test
@@ -93,20 +99,6 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
     }
 
     /**
-     * Default request body accepted by the external function.
-     *
-     * @return array Body payload.
-     */
-    private function sample_body(): array {
-        return [
-            'certname' => 'Advanced Moodle Development',
-            'course' => 'Moodle administration',
-            'org' => 'Datacurso',
-            'socialmedia' => 'linkedin',
-        ];
-    }
-
-    /**
      * Leave the AI provider without a license key.
      *
      * With an empty license key the HTTP client constructor fails locally (the token manager
@@ -158,6 +150,9 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
 
         require_once($CFG->dirroot . '/local/socialcert/tests/fixtures/stub_ai_services_api.php');
         require_once($CFG->dirroot . '/local/socialcert/tests/fixtures/testable_ai_helper.php');
+
+        // A fresh stub per test, so the requests and the failure of one test never leak into another.
+        testable_ai_helper::$client = new stub_ai_services_api();
 
         return testable_ai_helper::class;
     }
@@ -228,7 +223,7 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
 
         $this->setUser(null);
 
-        $result = ai_helper::execute($this->sample_body(), $fixture->cmid);
+        $result = ai_helper::execute($fixture->cmid);
         $this->flush_debugging();
 
         $this->assert_controlled_rejection($result, 'requireloginerror');
@@ -246,7 +241,7 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
         $outsider = $this->getDataGenerator()->create_user();
         $this->setUser($outsider);
 
-        $result = ai_helper::execute($this->sample_body(), $fixture->cmid);
+        $result = ai_helper::execute($fixture->cmid);
         $this->flush_debugging();
 
         $this->assert_controlled_rejection($result, 'requireloginerror');
@@ -273,7 +268,7 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
 
         $this->setUser($fixture->student);
 
-        $result = ai_helper::execute($this->sample_body(), $fixture->cmid);
+        $result = ai_helper::execute($fixture->cmid);
         $this->flush_debugging();
 
         $this->assert_controlled_rejection($result);
@@ -295,39 +290,223 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
         $this->disable_provider_license();
         $this->setUser($fixture->student);
 
-        $zero = ai_helper::execute($this->sample_body(), 0);
+        $zero = ai_helper::execute(0);
         $this->flush_debugging();
         $this->assert_controlled_rejection($zero, 'invalidcmid');
 
-        $negative = ai_helper::execute($this->sample_body(), -1);
+        $negative = ai_helper::execute(-1);
         $this->flush_debugging();
         $this->assert_controlled_rejection($negative, 'invalidcmid');
 
         $missingid = (int) $DB->get_field_sql('SELECT MAX(id) FROM {course_modules}') + 1000;
-        $missing = ai_helper::execute($this->sample_body(), $missingid);
+        $missing = ai_helper::execute($missingid);
         $this->flush_debugging();
         $this->assert_controlled_rejection($missing);
     }
 
     /**
-     * MDL-INT-009: A body missing a documented key throws the parameter validation exception.
+     * MDL-INT-009: A non numeric course module id is refused by the declared parameter contract.
      *
-     * validate_parameters() runs before the try/catch, so malformed input still propagates.
-     */
-    public function test_body_missing_a_required_key_throws_validation_exception(): void {
-        $body = $this->sample_body();
-        unset($body['certname']);
-
-        $this->expectException(\invalid_parameter_exception::class);
-        ai_helper::execute($body, 1);
-    }
-
-    /**
-     * MDL-INT-009: A non numeric course module id throws the parameter validation exception.
+     * The parameters are typed since version 1.1.4, so the declared contract is what core/ajax
+     * validates before the function runs; it is asserted here through validate_parameters().
      */
     public function test_non_numeric_course_module_id_throws_validation_exception(): void {
         $this->expectException(\invalid_parameter_exception::class);
-        ai_helper::execute($this->sample_body(), 'not-an-id');
+        external_api::validate_parameters(ai_helper::execute_parameters(), ['cmid' => 'not-an-id']);
+    }
+
+    /**
+     * MDL-INT-009: A social network with characters outside the declared type is refused by the contract.
+     */
+    public function test_malformed_social_network_throws_validation_exception(): void {
+        $this->expectException(\invalid_parameter_exception::class);
+        external_api::validate_parameters(ai_helper::execute_parameters(), ['cmid' => 1, 'socialmedia' => 'linked in']);
+    }
+
+    /**
+     * The social network defaults to LinkedIn when the caller omits it.
+     */
+    public function test_social_network_defaults_to_linkedin(): void {
+        $params = external_api::validate_parameters(ai_helper::execute_parameters(), ['cmid' => 1]);
+
+        $this->assertSame(['cmid' => 1, 'socialmedia' => 'linkedin'], $params);
+    }
+
+    /**
+     * A social network outside the allowlist is rejected before the AI service is contacted.
+     *
+     * The network is part of the prompt the service receives, so only the networks the plugin
+     * knows how to write for are accepted; anything else is refused without spending credits.
+     */
+    public function test_social_network_outside_the_allowlist_is_rejected_before_contacting_the_service(): void {
+        $this->resetAfterTest();
+        $helper = $this->load_testable_ai_helper();
+
+        $fixture = $this->create_certificate_fixture();
+        $this->issue_certificate($fixture->customcert, $fixture->student);
+        set_config('enableai', 1, 'local_socialcert');
+        $this->setUser($fixture->student);
+
+        $sink = $this->redirectEvents();
+        $result = $helper::execute($fixture->cmid, 'facebook');
+        $events = $sink->get_events();
+        $sink->close();
+        $this->flush_debugging();
+
+        $this->assert_controlled_rejection($result, 'invalidsocialmedia');
+        $this->assertSame(get_string('invalidsocialmedia', 'local_socialcert'), $result['message']);
+        $this->assertSame([], $helper::$client->requests, 'The service must not be contacted for an unknown network.');
+        $this->assertSame([], $events, 'A rejected generation must leave no trace in the logs.');
+    }
+
+    /**
+     * The inputs of the prompt are computed on the server, from the same source the panel renders.
+     *
+     * Until version 1.1.3 the browser sent the certificate, course and organization names in the
+     * request, so any caller could feed the AI service arbitrary text. The function now derives the
+     * three values from the activity and the user in session, exactly as the assistant card shows
+     * them: the names pass through the platform filters and keep their ampersands readable.
+     */
+    public function test_prompt_inputs_are_computed_on_the_server(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        $helper = $this->load_testable_ai_helper();
+
+        $fixture = $this->create_certificate_fixture();
+        $DB->set_field('course', 'fullname', 'Data & Skills 101', ['id' => $fixture->course->id]);
+        $DB->set_field('customcert', 'name', 'AI & Analytics Fundamentals', ['id' => $fixture->customcert->id]);
+        rebuild_course_cache($fixture->course->id, true);
+        set_config('organizationname', 'Buen Data', 'local_socialcert');
+        $this->issue_certificate($fixture->customcert, $fixture->student);
+        set_config('enableai', 1, 'local_socialcert');
+        $this->setUser($fixture->student);
+
+        $result = $helper::execute($fixture->cmid, 'linkedin');
+
+        $this->assertArrayHasKey('json', $result, 'The generation must succeed with the server computed inputs.');
+        $this->assertCount(1, $helper::$client->requests, 'Exactly one request must reach the service.');
+
+        $request = $helper::$client->requests[0];
+        $this->assertSame('POST', $request['method']);
+        $this->assertSame('/certificate/answer', $request['path']);
+        $this->assertSame([
+            'certname'    => 'AI & Analytics Fundamentals',
+            'course'      => 'Data & Skills 101',
+            'org'         => 'Buen Data',
+            'socialmedia' => 'linkedin',
+        ], $request['body']);
+
+        // The very same values the assistant card renders, so the panel and the prompt never disagree.
+        $state = main_panel::get_share_state($fixture->cmid, (int) $fixture->student->id);
+        $card = main_panel::get_ai_card_context($fixture->cmid, $state);
+        $this->assertSame($card['certname'], $request['body']['certname']);
+        $this->assertSame($card['course'], $request['body']['course']);
+        $this->assertSame($card['org'], $request['body']['org']);
+    }
+
+    /**
+     * A rejection of the AI provider reaches the panel with its own localized message and code.
+     *
+     * The panel shows the message of the provider as is for the rate limit, because it already
+     * carries the retry time in the language of the user, so the text of aiprovider_datacurso is
+     * one of the two trusted sources of messages (the other one is this plugin).
+     */
+    public function test_provider_rejection_reaches_the_panel_with_its_localized_message(): void {
+        $this->resetAfterTest();
+        $helper = $this->load_testable_ai_helper();
+
+        $fixture = $this->create_certificate_fixture();
+        $this->issue_certificate($fixture->customcert, $fixture->student);
+        set_config('enableai', 1, 'local_socialcert');
+        $this->setUser($fixture->student);
+
+        $failure = new \moodle_exception('error_ratelimit_exceeded', 'aiprovider_datacurso', '', '12:00');
+        $helper::$client->failure = $failure;
+
+        $result = $helper::execute($fixture->cmid);
+        $this->flush_debugging();
+
+        $this->assert_controlled_rejection($result, 'error_ratelimit_exceeded');
+        $this->assertSame($failure->getMessage(), $result['message']);
+    }
+
+    /**
+     * A Moodle exception of any other component keeps its code but never its message.
+     *
+     * The code lets the panel classify the failure; the message of a foreign component (core,
+     * the database layer, another plugin) is not written for the user of the panel and may name
+     * internals, so the generic message of the plugin is returned instead.
+     */
+    public function test_rejection_from_another_component_is_reported_with_the_generic_message(): void {
+        $this->resetAfterTest();
+        $helper = $this->load_testable_ai_helper();
+
+        $fixture = $this->create_certificate_fixture();
+        $this->issue_certificate($fixture->customcert, $fixture->student);
+        set_config('enableai', 1, 'local_socialcert');
+        $this->setUser($fixture->student);
+
+        $failure = new \moodle_exception('invalidrecord', 'error', '', 'customcert_issues');
+        $helper::$client->failure = $failure;
+
+        $result = $helper::execute($fixture->cmid);
+        $this->flush_debugging();
+
+        $this->assert_controlled_rejection($result, 'invalidrecord');
+        $this->assertSame(get_string('errorgeneric', 'local_socialcert'), $result['message']);
+        $this->assertStringNotContainsString($failure->getMessage(), $result['message']);
+    }
+
+    /**
+     * Unexpected failures of the generation.
+     *
+     * @return array[] Class of the throwable and the text it carries.
+     */
+    public static function unexpected_failure_provider(): array {
+        return [
+            'runtime exception' => [\RuntimeException::class, 'SELECT secret FROM table'],
+            'type error' => [\TypeError::class, 'Argument #1 must be of type secret'],
+        ];
+    }
+
+    /**
+     * An unexpected failure is reported with the generic message and never leaks its text or a code.
+     *
+     * Until version 1.1.3 the function returned the raw text of any exception to the browser, so a
+     * database error could reveal a query. Every throwable is now caught, including PHP errors,
+     * the answer carries only the generic message of the plugin, and the detail is kept on the
+     * server through the developer debugging output.
+     *
+     * @dataProvider unexpected_failure_provider
+     * @param string $class Class of the throwable the service raises.
+     * @param string $text Text of the throwable, which must never reach the browser.
+     */
+    public function test_unexpected_failure_never_leaks_its_text(string $class, string $text): void {
+        $this->resetAfterTest();
+        $helper = $this->load_testable_ai_helper();
+
+        $fixture = $this->create_certificate_fixture();
+        $this->issue_certificate($fixture->customcert, $fixture->student);
+        set_config('enableai', 1, 'local_socialcert');
+        $this->setUser($fixture->student);
+
+        $helper::$client->failure = new $class($text);
+
+        $result = $helper::execute($fixture->cmid);
+
+        $this->assert_controlled_rejection($result);
+        $this->assertArrayNotHasKey('errorcode', $result, 'Only a Moodle exception carries a code the panel can classify.');
+        $this->assertSame(get_string('errorgeneric', 'local_socialcert'), $result['message']);
+        $this->assertStringNotContainsString($text, json_encode($result), 'The raw text must never reach the browser.');
+
+        // The detail stays on the server, for the developer only.
+        $debugging = $this->getDebuggingMessages();
+        $this->assertCount(1, $debugging, 'The failure must be reported once to the developer.');
+        $this->assertSame(DEBUG_DEVELOPER, $debugging[0]->level);
+        $this->assertStringContainsString($class, $debugging[0]->message);
+        $this->assertStringContainsString($text, $debugging[0]->message);
+        $this->resetDebugging();
     }
 
     /**
@@ -342,7 +521,7 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
 
         $this->setUser($fixture->student);
 
-        $result = ai_helper::execute($this->sample_body(), $fixture->cmid);
+        $result = ai_helper::execute($fixture->cmid);
         $this->flush_debugging();
 
         $this->assert_controlled_rejection($result);
@@ -397,7 +576,7 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
 
         $this->setUser($fixture->student);
 
-        $result = ai_helper::execute($this->sample_body(), $fixture->cmid);
+        $result = ai_helper::execute($fixture->cmid);
         $this->flush_debugging();
 
         $this->assert_business_rejection($result, 'A request made while AI is globally disabled');
@@ -417,7 +596,7 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
 
         $this->setUser($fixture->student);
 
-        $result = ai_helper::execute($this->sample_body(), $fixture->cmid);
+        $result = ai_helper::execute($fixture->cmid);
         $this->flush_debugging();
 
         $this->assert_business_rejection($result, 'A request made without an issued certificate');
@@ -439,7 +618,7 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
         $page = $this->getDataGenerator()->create_module('page', ['course' => $fixture->course->id]);
         $this->setUser($fixture->student);
 
-        $result = ai_helper::execute($this->sample_body(), (int) $page->cmid);
+        $result = ai_helper::execute((int) $page->cmid);
         $this->flush_debugging();
 
         $this->assert_business_rejection($result, 'A request pointing at a non certificate activity');
@@ -475,39 +654,34 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
         $this->assertSame('execute', $function->methodname);
 
         $info = external_api::external_function_info(self::FUNCTIONNAME);
-        $this->assertSame('read', $info->type);
+        // The generation spends the AI credits of the licence and records an event, so it is a write.
+        $this->assertSame('write', $info->type);
         $this->assertTrue((bool) $info->allowed_from_ajax, 'The panel calls the function through core/ajax.');
         $this->assertTrue((bool) $info->loginrequired, 'The function must require an active session.');
     }
 
     /**
-     * MDL-CTR-001: The parameter contract exposes the five documented inputs.
+     * MDL-CTR-001: The parameter contract exposes the two documented inputs.
+     *
+     * The contract pinned a body of four free texts until version 1.1.4. The browser now only
+     * names the activity and the social network; the inputs of the prompt are computed on the
+     * server, so the body is gone from the contract on purpose.
      */
     public function test_parameter_contract_declares_the_documented_inputs(): void {
         $parameters = ai_helper::execute_parameters();
         $this->assertInstanceOf(external_function_parameters::class, $parameters);
-        $this->assertEqualsCanonicalizing(['body', 'cmid'], array_keys($parameters->keys));
-
-        $body = $parameters->keys['body'];
-        $this->assertInstanceOf(external_single_structure::class, $body);
-        $this->assertEqualsCanonicalizing(
-            ['certname', 'course', 'org', 'socialmedia'],
-            array_keys($body->keys)
-        );
-
-        foreach (['certname', 'course', 'org', 'socialmedia'] as $key) {
-            $this->assertInstanceOf(external_value::class, $body->keys[$key]);
-            $this->assertSame(PARAM_TEXT, $body->keys[$key]->type, "Wrong type for body/{$key}.");
-            $this->assertSame(VALUE_REQUIRED, $body->keys[$key]->required, "body/{$key} must be required.");
-        }
+        $this->assertEqualsCanonicalizing(['cmid', 'socialmedia'], array_keys($parameters->keys));
 
         $cmid = $parameters->keys['cmid'];
         $this->assertInstanceOf(external_value::class, $cmid);
         $this->assertSame(PARAM_INT, $cmid->type);
         $this->assertSame(VALUE_REQUIRED, $cmid->required);
 
-        // Certificate name, course, organization, social network and activity id.
-        $this->assertCount(5, array_merge(array_keys($body->keys), ['cmid']));
+        $socialmedia = $parameters->keys['socialmedia'];
+        $this->assertInstanceOf(external_value::class, $socialmedia);
+        $this->assertSame(PARAM_ALPHANUMEXT, $socialmedia->type);
+        $this->assertSame(VALUE_DEFAULT, $socialmedia->required);
+        $this->assertSame('linkedin', $socialmedia->default);
     }
 
     /**
@@ -574,7 +748,7 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
         set_config('enableai', 1, 'local_socialcert');
         $this->setUser($fixture->student);
 
-        $result = $helper::execute($this->sample_body(), $fixture->cmid);
+        $result = $helper::execute($fixture->cmid);
 
         $this->assertArrayHasKey('json', $result, 'A successful generation must return the service payload.');
         $this->assertArrayNotHasKey('ok', $result, 'A success must not carry the failure flag.');
@@ -602,7 +776,7 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
         $this->setUser($fixture->student);
 
         $sink = $this->redirectEvents();
-        $result = $helper::execute($this->sample_body(), $fixture->cmid);
+        $result = $helper::execute($fixture->cmid);
         $events = $sink->get_events();
         $sink->close();
 
@@ -634,7 +808,7 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
         $this->setUser($fixture->student);
 
         $sink = $this->redirectEvents();
-        $result = ai_helper::execute($this->sample_body(), $fixture->cmid);
+        $result = ai_helper::execute($fixture->cmid);
         $events = $sink->get_events();
         $sink->close();
         $this->flush_debugging();
@@ -667,7 +841,7 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
         // assistant, and it happens before the AI HTTP client is built.
         $this->assertTrue(has_capability('mod/customcert:view', $fixture->modcontext));
 
-        $result = ai_helper::execute($this->sample_body(), $fixture->cmid);
+        $result = ai_helper::execute($fixture->cmid);
         $this->flush_debugging();
 
         $this->assert_business_rejection($result, 'A request made without the capability of the assistant');

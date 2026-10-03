@@ -139,14 +139,17 @@ class main_panel implements renderable, templatable {
      * @return array Context of the assistant card, ready for the Mustache template.
      */
     public static function get_ai_card_context(int $cmid, array $state): array {
-        global $DB, $USER;
+        global $USER;
 
         $cm      = get_coursemodule_from_id('', $cmid, 0, false, MUST_EXIST);
-        $course  = $DB->get_record('course', ['id' => $cm->course], '*', MUST_EXIST);
         $context = context_module::instance($cm->id);
 
-        $coursefullname = self::format_plain_name($course->fullname, context_course::instance($course->id));
-        $displayname    = self::format_plain_name(fullname($USER), $context);
+        $displayname = self::format_plain_name(fullname($USER), $context);
+
+        // The names of the certificate, the course and the organization are the inputs of the
+        // prompt, computed by the same method the web service uses, so the card and the prompt
+        // never disagree.
+        $inputs = self::build_ai_prompt_inputs($cm, $state);
 
         return [
             'aibuttonid'    => 'btn-ai',
@@ -157,9 +160,9 @@ class main_panel implements renderable, templatable {
             // The silhouette drawn by the template is only a fallback, so the real profile picture
             // of the user in session is exported whenever there is one to show.
             'author_avatar_url' => self::get_author_avatar_url($context),
-            'certname'      => $state['certname'],
-            'course'        => $coursefullname,
-            'org'           => (string) get_config('local_socialcert', 'organizationname'),
+            'certname'      => $inputs['certname'],
+            'course'        => $inputs['course'],
+            'org'           => $inputs['org'],
             // The share URL only feeds the data-certurl attribute of the card; an activity without
             // the organization ID configured has no URL to publish, and the card carries none.
             'shareurl'      => (string) ($state['shareurl'] ?? ''),
@@ -176,6 +179,43 @@ class main_panel implements renderable, templatable {
             'errorcredits'  => get_string('errorcredits', 'local_socialcert'),
             'errorgeneric'  => get_string('errorgeneric', 'local_socialcert'),
             'errorlicense'  => get_string('errorlicense', 'local_socialcert'),
+        ];
+    }
+
+    /**
+     * Inputs of the AI prompt for the certificate of one user: certificate, course and organization.
+     *
+     * This is the single source of the text the AI service receives. The assistant card renders
+     * these values through {@see self::get_ai_card_context()} and the
+     * local_socialcert_get_ai_response web service sends them to the service, so they are computed
+     * on the server from the activity and the user, never taken from the browser.
+     *
+     * @param int $cmid Course module ID of the custom certificate activity.
+     * @param int $userid ID of the user the certificate was issued to.
+     * @return array Inputs with the keys certname, course and org, as readable plain text.
+     */
+    public static function get_ai_prompt_inputs(int $cmid, int $userid): array {
+        $cm = get_coursemodule_from_id('', $cmid, 0, false, MUST_EXIST);
+
+        return self::build_ai_prompt_inputs($cm, self::get_share_state($cmid, $userid));
+    }
+
+    /**
+     * Builds the inputs of the AI prompt from the course module and the share state.
+     *
+     * @param \stdClass $cm Course module record of the custom certificate activity.
+     * @param array $state State returned by {@see self::get_share_state()} for the same activity.
+     * @return array Inputs with the keys certname, course and org, as readable plain text.
+     */
+    private static function build_ai_prompt_inputs(\stdClass $cm, array $state): array {
+        global $DB;
+
+        $course = $DB->get_record('course', ['id' => $cm->course], '*', MUST_EXIST);
+
+        return [
+            'certname' => $state['certname'],
+            'course'   => self::format_plain_name($course->fullname, context_course::instance($course->id)),
+            'org'      => (string) get_config('local_socialcert', 'organizationname'),
         ];
     }
 

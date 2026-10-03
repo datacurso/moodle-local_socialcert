@@ -50,6 +50,7 @@ $string['eventaitextgenerated'] = 'Texto de publicación generado con IA';
 $string['eventcertificateshared'] = 'Certificado compartido en una red social';
 $string['generating'] = 'Generando…';
 $string['invalidcmid'] = 'El identificador de la actividad de la solicitud no es válido.';
+$string['invalidsocialmedia'] = 'La red social solicitada no es compatible con el asistente.';
 $string['linkcertbuttontext'] = 'Compartir en LinkedIn';
 $string['linktext'] = 'Enlace del certificado';
 $string['nocertificateissued'] = 'Necesitas un certificado emitido en esta actividad antes de poder generar el texto de la publicación.';

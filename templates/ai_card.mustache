@@ -31,9 +31,6 @@
     * responseid string - DOM id of the container the generated text is streamed into.
     * cmid int - Course module ID of the certificate activity.
     * author_name string - Full name of the user in session, shown in the post preview.
-    * certname string - Name of the issued certificate.
-    * course string - Full name of the course the certificate belongs to.
-    * org string - Name of the issuing organization.
     * shareurl string - LinkedIn add-to-profile URL of the credential.
     * socialmedia string - Social network the post is written for.
     * imageurl string - URL of the assistant logo.
@@ -59,9 +56,6 @@
         "cmid": 42,
         "author_name": "Jane Doe",
         "author_avatar_url": "https://example.com/u/jane.jpg",
-        "certname": "AI Fundamentals",
-        "course": "Machine Learning 101",
-        "org": "Buen Data",
         "shareurl": "https://www.linkedin.com/profile/add?name=AI%20Fundamentals",
         "socialmedia": "LinkedIn",
         "imageurl": "https://example.com/local/socialcert/assets/logo_title.png",
@@ -94,9 +88,6 @@
           data-target="#{{responseid}}"
           data-mode="word"
           data-speed="40"
-          data-certname="{{certname}}"
-          data-course="{{course}}"
-          data-org="{{org}}"
           data-certurl="{{shareurl}}"
           data-socialmedia="{{socialmedia}}"
           data-errorlicense="{{errorlicense}}"
