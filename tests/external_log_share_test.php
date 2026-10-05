@@ -31,12 +31,14 @@ use core_external\external_single_structure;
 use core_external\external_value;
 use local_socialcert\event\certificate_shared;
 use local_socialcert\external\log_share;
+use local_socialcert\fixtures\customcert_dependency_trait;
 use mod_customcert\certificate;
 
 defined('MOODLE_INTERNAL') || die();
 
 global $CFG;
 require_once($CFG->dirroot . '/webservice/tests/helpers.php');
+require_once(__DIR__ . '/fixtures/customcert_dependency_trait.php');
 
 /**
  * Tests for the share logging external function.
@@ -53,6 +55,8 @@ require_once($CFG->dirroot . '/webservice/tests/helpers.php');
  * @covers     \local_socialcert\external\log_share
  */
 final class external_log_share_test extends \externallib_advanced_testcase {
+    use customcert_dependency_trait;
+
     /** @var string Name of the external function under test. */
     private const FUNCTIONNAME = 'local_socialcert_log_share';
 
@@ -62,6 +66,7 @@ final class external_log_share_test extends \externallib_advanced_testcase {
      * @return \stdClass Object with course, customcert, cmid, modcontext and student.
      */
     private function create_certificate_fixture(): \stdClass {
+        $this->require_customcert();
         $generator = $this->getDataGenerator();
 
         $course = $generator->create_course(['fullname' => 'Machine Learning 101']);

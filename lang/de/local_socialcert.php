@@ -50,6 +50,7 @@ $string['eventaitextgenerated'] = 'Beitragstext mit KI erstellt';
 $string['eventcertificateshared'] = 'Zertifikat in einem sozialen Netzwerk geteilt';
 $string['generating'] = 'Wird erstellt…';
 $string['invalidcmid'] = 'Die Aktivitätskennung der Anfrage ist nicht gültig.';
+$string['invalidsocialmedia'] = 'Das angeforderte soziale Netzwerk wird vom Assistenten nicht unterstützt.';
 $string['linkcertbuttontext'] = 'Auf LinkedIn teilen';
 $string['linktext'] = 'Zertifikatslink';
 $string['nocertificateissued'] = 'Du benötigst ein ausgestelltes Zertifikat in dieser Aktivität, bevor du einen Beitragstext erstellen kannst.';

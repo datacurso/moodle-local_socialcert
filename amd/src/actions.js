@@ -634,15 +634,16 @@ export function typewriter(el, text, mode, speedMs) {
  * ==========================================================================*/
 
 /**
- * Fetches an AI-generated response for the given context using the
+ * Fetches an AI-generated response for the certificate of the user in session using the
  * `local_socialcert_get_ai_response` web service.
+ *
+ * The browser only names the activity and the social network: the inputs of the prompt
+ * (certificate, course and organization names) are computed by the server from the activity and
+ * the user in session, so nothing shown in the card travels back in the request.
  *
  * @function ai_response
  * @async
- * @param {string} certname   Certificate (or student) name used in the prompt.
- * @param {string} course     Course name used in the prompt.
- * @param {string} org        Issuing organization name.
- * @param {string} socialmedia Target social network (e.g., "LinkedIn").
+ * @param {string} socialmedia Target social network, lower case (e.g., "linkedin").
  * @param {string[]} errorarray - Array of lang keys in the order:
  * @param {number} cmid - Course module ID.
  * @returns {Promise<{fulltext: string, done: boolean, plugintext: boolean}>} Resolves to the text to display,
@@ -652,23 +653,18 @@ export function typewriter(el, text, mode, speedMs) {
  * @throws {Error} If the AJAX call fails (also reported via Notification.exception).
  *
  * @example
- * ai_response("Analytics Certificate", "BUEN DATA", "LinkedIn")
+ * ai_response("linkedin", [creditsKey, licenseKey, genericKey], 42)
  *   .then(reply => console.log("AI reply:", reply))
  *   .catch(err => console.error("AI error:", err));
  */
-function ai_response(certname, course, org, socialmedia, errorarray, cmid) {
+function ai_response(socialmedia, errorarray, cmid) {
 
   return new Promise((resolve) => {
     Ajax.call([{
       methodname: 'local_socialcert_get_ai_response',
       args: {
-        body: {
-          certname: certname,
-          course: course,
-          org: org,
-          socialmedia: socialmedia,
-        },
         cmid: cmid,
+        socialmedia: socialmedia,
       },
     }])[0].then((response) => {
       if (response.json) {
@@ -832,11 +828,8 @@ export function runAiHandler(cmid) {
 
     const mode = (btn.dataset.mode === 'char') ? 'char' : 'word';
     const speed = parseInt(btn.dataset.speed || '40', 10);
-    const certname = btn.dataset.certname || '';
-    const course = btn.dataset.course || '';
-    const org = btn.dataset.org || '';
-    const socialmedia = btn.dataset.socialmedia || '';
-    // Const id_servicio = btn.dataset.id_servicio || '';
+    // The server validates the network against its allowlist of lower case identifiers.
+    const socialmedia = (btn.dataset.socialmedia || 'linkedin').toLowerCase();
     const original = btn.textContent;
     btn.disabled = true;
     setButtonLabel(btn, 'generating');
@@ -862,7 +855,7 @@ export function runAiHandler(cmid) {
       copyBtn.hidden = true;
     }
 
-    ai_response(certname, course, org, socialmedia, errorarray, cmid).then((response) => {
+    ai_response(socialmedia, errorarray, cmid).then((response) => {
       streamtext = response.fulltext;
       plugintext = response.plugintext === true;
       if (response.done && copyBtn) {

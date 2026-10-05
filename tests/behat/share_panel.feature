@@ -115,7 +115,6 @@ Feature: Share an issued certificate on LinkedIn from the certificate activity p
     # And "div.lsc-response-wrap" "css_element" should exist
     # And "div.bd-post[data-ai-composer]" "css_element" should exist
     # And "button#btn-ai[data-action='run-ai']" "css_element" should exist
-    # And the "data-certname" attribute of "button#btn-ai" "css_element" should contain "Course certificate"
     # And I should see "Create a professional message for your LinkedIn post in one click"
     # And "div.ai-bar__panel[aria-hidden='true']" "css_element" should exist
     # The card injected by the browser expands like the one rendered by the server, because the

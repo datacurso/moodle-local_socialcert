@@ -50,6 +50,7 @@ $string['eventaitextgenerated'] = 'Текст публикации создан 
 $string['eventcertificateshared'] = 'Сертификат опубликован в социальной сети';
 $string['generating'] = 'Генерация…';
 $string['invalidcmid'] = 'Идентификатор элемента курса в запросе некорректен.';
+$string['invalidsocialmedia'] = 'Запрошенная социальная сеть не поддерживается помощником.';
 $string['linkcertbuttontext'] = 'Поделиться в LinkedIn';
 $string['linktext'] = 'Ссылка на сертификат';
 $string['nocertificateissued'] = 'Чтобы создать текст публикации, в этом элементе курса требуется выданный сертификат.';

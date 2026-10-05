@@ -25,10 +25,15 @@
 
 namespace local_socialcert;
 
+use local_socialcert\fixtures\customcert_dependency_trait;
 use local_socialcert\output\main_panel;
 use mod_customcert\certificate;
 use mod_customcert\task\issue_certificates_task;
 use mod_customcert\template;
+
+defined('MOODLE_INTERNAL') || die();
+
+require_once(__DIR__ . '/fixtures/customcert_dependency_trait.php');
 
 /**
  * Tests the data layer of the issue and the resulting panel availability.
@@ -59,6 +64,8 @@ use mod_customcert\template;
  * @covers      \local_socialcert\output\main_panel
  */
 final class certificate_issue_test extends \advanced_testcase {
+    use customcert_dependency_trait;
+
     /**
      * MDL-INT-005: once the issue exists for the session user the panel becomes operational and
      * carries the code of that issue.
@@ -289,6 +296,7 @@ final class certificate_issue_test extends \advanced_testcase {
      * @return \stdClass Object with the course, customcert and student records.
      */
     private function create_certificate_scenario(array $options = []): \stdClass {
+        $this->require_customcert();
         $generator = $this->getDataGenerator();
 
         $course = $generator->create_course(['fullname' => 'Machine Learning 101']);

@@ -1,6 +1,20 @@
+## [1.1.4] - 2026-10-02
+
+**Compatibility note:** This version is compatible from **Moodle 4.5** to **Moodle 5.2**.
+
+### 🔧 Changed
+
+- Extend the supported range to Moodle 5.2
+- Skip the PHPUnit tests that build a certificate activity with an explicit message when mod_customcert is not installed, instead of failing inside the data generator
+
+### 🔒 Security
+
+- Sanitize the error responses of the local_socialcert_get_ai_response web service: only the localized messages of the plugin and of the Datacurso AI provider reach the browser, every other failure (including PHP errors) is answered with the generic message of the plugin and kept in the developer debugging output
+- Compute the inputs of the AI prompt (certificate, course and organization names) on the server, from the same source the assistant card renders, and accept only the social networks of an allowlist. The signature of the web service changes: the `body` parameter is removed and `socialmedia` is added (optional, defaults to `linkedin`); the function is now declared as a write function
+
 ## [1.1.3] - 2026-07-30
 
-**Compatibility note:** This version is compatible from **Moodle 4.5** to **Moodle 5.1**.
+**Compatibility note:** This version is compatible from **Moodle 4.5** to **Moodle 5.2**.
 
 ### 🚀 Added
 

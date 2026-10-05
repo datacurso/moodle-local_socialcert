@@ -20,6 +20,7 @@ use core\event\base as event_base;
 use local_socialcert\event\ai_text_generated;
 use local_socialcert\event\certificate_shared;
 use local_socialcert\external\log_share;
+use local_socialcert\fixtures\customcert_dependency_trait;
 use local_socialcert\output\main_panel;
 use mod_customcert\certificate;
 
@@ -27,6 +28,7 @@ defined('MOODLE_INTERNAL') || die();
 
 global $CFG;
 require_once($CFG->libdir . '/adminlib.php');
+require_once(__DIR__ . '/fixtures/customcert_dependency_trait.php');
 
 /**
  * Plugin level compliance tests: global settings, language packs, events and capabilities.
@@ -38,6 +40,8 @@ require_once($CFG->libdir . '/adminlib.php');
  * @coversNothing
  */
 final class plugin_compliance_test extends \advanced_testcase {
+    use customcert_dependency_trait;
+
     /** @var string Relative path of the plugin. */
     private const PLUGINPATH = '/local/socialcert';
 
@@ -761,6 +765,7 @@ final class plugin_compliance_test extends \advanced_testcase {
      * @return \stdClass Object with the course, customcert, cmid, context and student.
      */
     private function create_certificate_scenario(): \stdClass {
+        $this->require_customcert();
         $generator = $this->getDataGenerator();
 
         $course = $generator->create_course(['fullname' => 'Machine Learning 101']);

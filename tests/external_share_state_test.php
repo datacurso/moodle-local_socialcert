@@ -30,12 +30,14 @@ use core_external\external_function_parameters;
 use core_external\external_single_structure;
 use core_external\external_value;
 use local_socialcert\external\share_state;
+use local_socialcert\fixtures\customcert_dependency_trait;
 use mod_customcert\certificate;
 
 defined('MOODLE_INTERNAL') || die();
 
 global $CFG;
 require_once($CFG->dirroot . '/webservice/tests/helpers.php');
+require_once(__DIR__ . '/fixtures/customcert_dependency_trait.php');
 
 /**
  * Tests for the share panel state external function.
@@ -56,6 +58,8 @@ require_once($CFG->dirroot . '/webservice/tests/helpers.php');
  * @covers     \local_socialcert\external\share_state
  */
 final class external_share_state_test extends \externallib_advanced_testcase {
+    use customcert_dependency_trait;
+
     /** @var string Name of the external function under test. */
     private const FUNCTIONNAME = 'local_socialcert_get_share_state';
 
@@ -66,6 +70,7 @@ final class external_share_state_test extends \externallib_advanced_testcase {
      * @return \stdClass Object with course, customcert, cmid, modcontext and student.
      */
     private function create_certificate_fixture(string $certname = 'AI Fundamentals'): \stdClass {
+        $this->require_customcert();
         $generator = $this->getDataGenerator();
 
         $course = $generator->create_course(['fullname' => 'Machine Learning 101']);

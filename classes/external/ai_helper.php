@@ -30,6 +30,7 @@ use core_external\external_single_structure;
 use core_external\external_value;
 use aiprovider_datacurso\httpclient\ai_services_api;
 use local_socialcert\event\ai_text_generated;
+use local_socialcert\output\main_panel;
 
 /**
  * External API helper for AI-based certificate generation.
@@ -45,25 +46,45 @@ use local_socialcert\event\ai_text_generated;
  */
 class ai_helper extends external_api {
     /**
+     * Social networks the assistant knows how to write a post for.
+     *
+     * The network is part of the prompt the AI service receives, so only the networks the plugin
+     * supports are accepted; any other value is refused before the service is contacted.
+     *
+     * @var string[]
+     */
+    public const SOCIAL_NETWORKS = ['linkedin'];
+
+    /**
+     * Components whose exception messages may be shown to the user of the panel.
+     *
+     * Only the AI provider and this plugin write their messages for the user of the panel (the
+     * provider, for instance, localizes the rate limit message with the retry time). Any other
+     * exception (core, the database layer, PHP itself) may name internals, so its text never
+     * leaves the server and the generic message of the plugin is returned instead.
+     *
+     * @var string[]
+     */
+    public const TRUSTED_MESSAGE_COMPONENTS = ['aiprovider_datacurso', 'local_socialcert'];
+
+    /**
      * Defines the parameters accepted by the external function.
      *
-     * Each request must include a `body` structure containing:
-     * - certname: The certificate display name.
-     * - course: The course name where the certificate was issued.
-     * - org: The issuing organization's name.
-     * - socialmedia: The platform where the certificate will be shared.
+     * The browser only names the activity and the social network. The inputs of the prompt
+     * (certificate, course and organization names) are computed on the server from the activity
+     * and the user in session, so no caller can feed the AI service arbitrary text.
      *
      * @return external_function_parameters The parameter structure definition.
      */
     public static function execute_parameters(): external_function_parameters {
         return new external_function_parameters([
-            'body' => new external_single_structure([
-                'certname'    => new external_value(PARAM_TEXT, 'Certificate name'),
-                'course'      => new external_value(PARAM_TEXT, 'Course name'),
-                'org'         => new external_value(PARAM_TEXT, 'Name of the issuing organization'),
-                'socialmedia' => new external_value(PARAM_TEXT, 'Social network where the certificate will be published'),
-            ]),
-            'cmid' => new external_value(PARAM_INT, 'Course module ID'),
+            'cmid' => new external_value(PARAM_INT, 'Course module ID of the certificate activity'),
+            'socialmedia' => new external_value(
+                PARAM_ALPHANUMEXT,
+                'Social network the post is written for (one of ' . implode(', ', self::SOCIAL_NETWORKS) . ')',
+                VALUE_DEFAULT,
+                'linkedin'
+            ),
         ]);
     }
 
@@ -81,16 +102,26 @@ class ai_helper extends external_api {
      * A generation the service really answered fires \local_socialcert\event\ai_text_generated, so
      * the consumption of the assistant is traceable in the logs of the platform.
      *
-     * @param array $body The body data containing certificate information.
-     * @param array $cmid The body data containing certificate information.
-     * @return array An associative array with a 'json' key holding the API response.
+     * @param int $cmid Course module ID of the certificate activity.
+     * @param string $socialmedia Social network the post is written for, see {@see self::SOCIAL_NETWORKS}.
+     * @return array An associative array with a 'json' key holding the API response, or a controlled
+     *               failure with the keys ok, message and (for Moodle exceptions) errorcode.
      */
-    public static function execute($body, $cmid) {
+    public static function execute(int $cmid, string $socialmedia = 'linkedin'): array {
         global $DB, $USER;
 
-        $params = self::validate_parameters(self::execute_parameters(), ['body' => $body, 'cmid' => $cmid]);
+        $params = self::validate_parameters(
+            self::execute_parameters(),
+            ['cmid' => $cmid, 'socialmedia' => $socialmedia]
+        );
 
         try {
+            // The network travels inside the prompt, so it is checked against the allowlist before
+            // anything else: an unknown network must never reach the service nor spend credits.
+            if (!in_array($params['socialmedia'], self::SOCIAL_NETWORKS, true)) {
+                throw new \moodle_exception('invalidsocialmedia', 'local_socialcert');
+            }
+
             if ($params['cmid'] <= 0) {
                 throw new \moodle_exception('invalidcmid', 'local_socialcert');
             }
@@ -120,7 +151,10 @@ class ai_helper extends external_api {
                 throw new \moodle_exception('nocertificateissued', 'local_socialcert');
             }
 
-            $body   = $params['body'];
+            // The inputs of the prompt come from the same source the assistant card renders them
+            // from, so the text the service receives is always the one the panel showed.
+            $body = main_panel::get_ai_prompt_inputs($params['cmid'], (int) $USER->id);
+            $body['socialmedia'] = $params['socialmedia'];
 
             $client   = static::get_ai_client();
             $response = $client->request('POST', '/certificate/answer', $body);
@@ -134,21 +168,35 @@ class ai_helper extends external_api {
             // that consumed credits and never the ones the plugin or the provider rejected.
             ai_text_generated::create([
                 'context' => $context,
-                'other'   => ['socialmedia' => (string) $body['socialmedia']],
+                'other'   => ['socialmedia' => $params['socialmedia']],
             ])->trigger();
 
             return ['json' => $json];
-        } catch (\Exception $e) {
-            debugging("Unexpected error while starting resource generation (stream): " . $e->getMessage());
+        } catch (\Throwable $e) {
+            // The detail stays on the server, for the developer only: the class and the text of the
+            // failure, never the request or the response bodies.
+            debugging(
+                'AI generation failed with ' . get_class($e) . ': ' . $e->getMessage(),
+                DEBUG_DEVELOPER
+            );
+
             $result = [
                 'ok' => false,
-                'message' => $e->getMessage(),
+                'message' => get_string('errorgeneric', 'local_socialcert'),
             ];
-            // Expose the provider's exception code so the UI can show the real (localized) message
-            // for known cases such as the rate limit, instead of a generic fallback.
+
             if ($e instanceof \moodle_exception) {
+                // The code lets the panel classify the failure (credits, licence, rate limit).
                 $result['errorcode'] = $e->errorcode;
+
+                // Only the messages written for the user of the panel are shown as they are: the
+                // provider localizes the rate limit message with the retry time, and this plugin
+                // explains its own business rejections. Any other component may name internals.
+                if (in_array($e->module, self::TRUSTED_MESSAGE_COMPONENTS, true)) {
+                    $result['message'] = $e->getMessage();
+                }
             }
+
             return $result;
         }
     }
@@ -179,7 +227,9 @@ class ai_helper extends external_api {
     public static function execute_returns(): external_single_structure {
         return new external_single_structure([
             'ok' => new external_value(PARAM_BOOL, 'Response status from server', VALUE_OPTIONAL),
-            'message' => new external_value(PARAM_RAW, 'Response message from server', VALUE_OPTIONAL),
+            // Localized message of the failure: the text of the provider or of this plugin, or the
+            // generic message of the plugin for any other failure.
+            'message' => new external_value(PARAM_RAW, 'Localized message of the failure', VALUE_OPTIONAL),
             // PARAM_TEXT and not PARAM_ALPHANUMEXT: real provider codes contain spaces (for
             // instance 'API baseurl or licensekey not configured'), and the stricter type dropped
             // them while cleaning the response, so the panel lost the specific message.
