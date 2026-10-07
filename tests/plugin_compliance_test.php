@@ -21,6 +21,8 @@ use local_socialcert\event\ai_text_generated;
 use local_socialcert\event\certificate_shared;
 use local_socialcert\external\log_share;
 use local_socialcert\fixtures\customcert_dependency_trait;
+use local_socialcert\local\tenancy;
+use local_socialcert\local\tenant_config;
 use local_socialcert\output\main_panel;
 use mod_customcert\certificate;
 
@@ -244,33 +246,39 @@ final class plugin_compliance_test extends \advanced_testcase {
     }
 
     /**
-     * MDL-INT-001: The three documented settings exist with their documented defaults.
+     * MDL-INT-001: The three documented tenant settings exist with their documented defaults.
      *
      * Step 4 of the case (the AI card disappearing from the panel while the LinkedIn button stays
      * available) is a rendering concern and is covered by Behat, not here.
      */
-    public function test_global_settings_declare_the_documented_defaults(): void {
+    public function test_tenant_settings_declare_the_documented_defaults(): void {
         $this->resetAfterTest();
         $this->setAdminUser();
 
         $page = $this->get_plugin_settings_page();
         $settings = $this->index_settings($page);
 
-        $this->assertCount(3, $settings, 'The plugin must expose exactly three global settings.');
+        // The three tenant settings plus the read-only notice naming the tenant they apply to.
+        $this->assertCount(4, $settings, 'The plugin must expose exactly three settings and the tenant scope notice.');
+        $this->assertArrayHasKey('local_socialcert/tenantscopenotice', $settings);
+        $this->assertInstanceOf(
+            \local_socialcert\admin\setting_tenant_scope_notice::class,
+            $settings['local_socialcert/tenantscopenotice']
+        );
 
         $this->assertArrayHasKey('local_socialcert/organizationid', $settings);
         $organizationid = $settings['local_socialcert/organizationid'];
-        $this->assertInstanceOf(\admin_setting_configtext::class, $organizationid);
+        $this->assertInstanceOf(\local_socialcert\admin\setting_configtext::class, $organizationid);
         $this->assertSame('', $organizationid->get_defaultsetting());
 
         $this->assertArrayHasKey('local_socialcert/organizationname', $settings);
         $organizationname = $settings['local_socialcert/organizationname'];
-        $this->assertInstanceOf(\admin_setting_configtext::class, $organizationname);
+        $this->assertInstanceOf(\local_socialcert\admin\setting_configtext::class, $organizationname);
         $this->assertSame('', $organizationname->get_defaultsetting());
 
         $this->assertArrayHasKey('local_socialcert/enableai', $settings);
         $enableai = $settings['local_socialcert/enableai'];
-        $this->assertInstanceOf(\admin_setting_configcheckbox::class, $enableai);
+        $this->assertInstanceOf(\local_socialcert\admin\setting_configcheckbox::class, $enableai);
         $this->assertEquals(1, $enableai->get_defaultsetting(), 'AI must be enabled out of the box.');
 
         // Every setting has a help text and none hides another one.
@@ -295,34 +303,52 @@ final class plugin_compliance_test extends \advanced_testcase {
     }
 
     /**
-     * MDL-INT-001: The three settings persist in the plugin configuration.
+     * MDL-INT-001: The three settings persist in the store of the tenant, never in config_plugins.
      */
-    public function test_global_settings_persist_their_values(): void {
+    public function test_tenant_settings_persist_in_the_tenant_store(): void {
         $this->resetAfterTest();
+        $this->setAdminUser();
 
-        set_config('organizationid', '1234567', 'local_socialcert');
-        set_config('organizationname', 'Datacurso', 'local_socialcert');
-        set_config('enableai', 0, 'local_socialcert');
+        $generator = $this->getDataGenerator()->get_plugin_generator('tool_tenant');
+        $tenantid = (int) $generator->create_tenant()->id;
+        $user = $this->getDataGenerator()->create_user();
+        $generator->allocate_user($user->id, $tenantid);
 
-        $this->assertSame('1234567', get_config('local_socialcert', 'organizationid'));
-        $this->assertSame('Datacurso', get_config('local_socialcert', 'organizationname'));
-        $this->assertSame('0', get_config('local_socialcert', 'enableai'));
+        // The tree is built as site administrator; the values are saved as a user of the tenant.
+        $settings = $this->index_settings($this->get_plugin_settings_page());
+        $this->setUser($user);
+        $this->assertSame('', $settings['local_socialcert/organizationid']->write_setting('1234567'));
+        $this->assertSame('', $settings['local_socialcert/organizationname']->write_setting('Datacurso'));
+        $this->assertSame('', $settings['local_socialcert/enableai']->write_setting('0'));
+
+        $this->assertSame('1234567', tenant_config::get_raw('organizationid', $tenantid));
+        $this->assertSame('Datacurso', tenant_config::get_raw('organizationname', $tenantid));
+        $this->assertSame('0', tenant_config::get_raw('enableai', $tenantid));
+
+        foreach (['organizationid', 'organizationname', 'enableai'] as $name) {
+            $this->assertFalse(get_config('local_socialcert', $name), "'{$name}' must not reach config_plugins.");
+        }
     }
 
     /**
-     * MDL-INT-001: The settings page is only built for site administrators.
+     * MDL-INT-001: The settings page is only accessible with the tenant settings capability.
      */
-    public function test_settings_page_is_only_built_for_site_administrators(): void {
+    public function test_settings_page_requires_the_tenant_settings_capability(): void {
         $this->resetAfterTest();
 
         $user = $this->getDataGenerator()->create_user();
         $this->setUser($user);
 
-        $adminroot = admin_get_root(true, true);
-        $this->assertNull(
-            $adminroot->locate('local_socialcert'),
-            'A user without moodle/site:config must not get the plugin settings page.'
+        $page = admin_get_root(true, false)->locate('local_socialcert');
+        $this->assertInstanceOf(\admin_settingpage::class, $page);
+        $this->assertFalse(
+            $page->check_access(),
+            'A user without local/socialcert:managetenantsettings must not reach the plugin settings page.'
         );
+
+        $this->setAdminUser();
+        $adminpage = admin_get_root(true, false)->locate('local_socialcert');
+        $this->assertTrue($adminpage->check_access());
     }
 
     /**
@@ -344,10 +370,17 @@ final class plugin_compliance_test extends \advanced_testcase {
             );
         }
 
-        $this->assertFileDoesNotExist(
-            $CFG->dirroot . self::PLUGINPATH . '/db/install.xml',
+        // The only table of the plugin holds the configuration of every tenant. Nothing is keyed by
+        // course or activity.
+        $installxml = file_get_contents($CFG->dirroot . self::PLUGINPATH . '/db/install.xml');
+        preg_match_all('/<TABLE NAME="([^"]+)"/', $installxml, $tables);
+        $this->assertSame(
+            ['local_socialcert_tenant_config'],
+            $tables[1],
             'The plugin must not store per course or per activity configuration.'
         );
+        $this->assertStringNotContainsString('courseid', $installxml);
+        $this->assertStringNotContainsString('cmid', $installxml);
     }
 
     /**
@@ -612,8 +645,8 @@ final class plugin_compliance_test extends \advanced_testcase {
     public function test_user_actions_are_logged_as_events(): void {
         $this->resetAfterTest();
 
-        set_config('organizationid', '12345', 'local_socialcert');
-        set_config('enableai', 1, 'local_socialcert');
+        tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
+        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
 
         $scenario = $this->create_certificate_scenario();
         $this->setUser($scenario->student);
@@ -672,10 +705,25 @@ final class plugin_compliance_test extends \advanced_testcase {
 
         $capabilities = $this->read_declared_capabilities();
         $this->assertEqualsCanonicalizing(
-            ['local/socialcert:viewsharepanel', 'local/socialcert:useaiassistant'],
+            [
+                'local/socialcert:viewsharepanel',
+                'local/socialcert:useaiassistant',
+                'local/socialcert:managetenantsettings',
+            ],
             array_keys($capabilities),
-            'The plugin must declare one capability for the share panel and one for the AI assistant.'
+            'The plugin must declare one capability for the share panel, one for the AI assistant and one '
+            . 'to manage the settings of the tenant.'
         );
+
+        // The administrative capability is not one of the features of the panel: it lives at system
+        // level and is never granted to students.
+        $tenantsettings = $capabilities['local/socialcert:managetenantsettings'];
+        unset($capabilities['local/socialcert:managetenantsettings']);
+        $this->assertSame(CONTEXT_SYSTEM, $tenantsettings['contextlevel']);
+        $this->assertSame('write', $tenantsettings['captype']);
+        $this->assertSame(RISK_CONFIG, $tenantsettings['riskbitmask']);
+        $this->assertSame(['manager' => CAP_ALLOW], $tenantsettings['archetypes']);
+        $this->assertTrue(get_string_manager()->string_exists('socialcert:managetenantsettings', 'local_socialcert'));
 
         foreach ($capabilities as $name => $definition) {
             $this->assertSame(
@@ -719,8 +767,8 @@ final class plugin_compliance_test extends \advanced_testcase {
 
         $this->resetAfterTest();
 
-        set_config('organizationid', '12345', 'local_socialcert');
-        set_config('enableai', 1, 'local_socialcert');
+        tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
+        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
 
         $scenario = $this->create_certificate_scenario();
         $studentroleid = (int) $DB->get_field('role', 'id', ['shortname' => 'student'], MUST_EXIST);

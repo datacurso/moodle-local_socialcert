@@ -27,6 +27,8 @@ namespace local_socialcert;
 
 use core\hook\output\before_footer_html_generation;
 use local_socialcert\fixtures\customcert_dependency_trait;
+use local_socialcert\local\tenancy;
+use local_socialcert\local\tenant_config;
 use mod_customcert\certificate;
 
 defined('MOODLE_INTERNAL') || die();
@@ -56,8 +58,8 @@ final class hook_callbacks_test extends \advanced_testcase {
         $this->require_customcert();
         $this->resetAfterTest();
 
-        set_config('organizationid', '12345', 'local_socialcert');
-        set_config('enableai', 1, 'local_socialcert');
+        tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
+        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
 
         $generator = $this->getDataGenerator();
         $course = $generator->create_course();
@@ -82,7 +84,7 @@ final class hook_callbacks_test extends \advanced_testcase {
         $this->require_customcert();
         $this->resetAfterTest();
 
-        set_config('organizationid', '12345', 'local_socialcert');
+        tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
 
         $generator = $this->getDataGenerator();
         $course = $generator->create_course();
@@ -105,7 +107,7 @@ final class hook_callbacks_test extends \advanced_testcase {
         $this->require_customcert();
         $this->resetAfterTest();
 
-        set_config('organizationid', '12345', 'local_socialcert');
+        tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
 
         $generator = $this->getDataGenerator();
         $course = $generator->create_course();
@@ -128,7 +130,7 @@ final class hook_callbacks_test extends \advanced_testcase {
     public function test_panel_is_not_injected_on_other_activity_types(): void {
         $this->resetAfterTest();
 
-        set_config('organizationid', '12345', 'local_socialcert');
+        tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
 
         $generator = $this->getDataGenerator();
         $course = $generator->create_course();
@@ -234,7 +236,7 @@ final class hook_callbacks_test extends \advanced_testcase {
         $this->require_customcert();
         $this->resetAfterTest();
 
-        set_config('organizationid', '12345', 'local_socialcert');
+        tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
 
         $generator = $this->getDataGenerator();
         $course = $generator->create_course();
@@ -270,7 +272,7 @@ final class hook_callbacks_test extends \advanced_testcase {
         $this->require_customcert();
         $this->resetAfterTest();
 
-        set_config('organizationid', '12345', 'local_socialcert');
+        tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
 
         $generator = $this->getDataGenerator();
         $course = $generator->create_course();
@@ -302,7 +304,7 @@ final class hook_callbacks_test extends \advanced_testcase {
         $this->require_customcert();
         $this->resetAfterTest();
 
-        set_config('organizationid', '12345', 'local_socialcert');
+        tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
 
         $generator = $this->getDataGenerator();
         $course = $generator->create_course();
@@ -345,7 +347,7 @@ final class hook_callbacks_test extends \advanced_testcase {
         $this->require_customcert();
         $this->resetAfterTest();
 
-        set_config('organizationid', '12345', 'local_socialcert');
+        tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
 
         $generator = $this->getDataGenerator();
         $course = $generator->create_course();
@@ -383,7 +385,7 @@ final class hook_callbacks_test extends \advanced_testcase {
         $this->require_customcert();
         $this->resetAfterTest();
 
-        set_config('organizationid', '12345', 'local_socialcert');
+        tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
 
         $generator = $this->getDataGenerator();
         $course = $generator->create_course();

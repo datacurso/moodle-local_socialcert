@@ -31,6 +31,8 @@ use core_external\external_single_structure;
 use core_external\external_value;
 use local_socialcert\external\share_state;
 use local_socialcert\fixtures\customcert_dependency_trait;
+use local_socialcert\local\tenancy;
+use local_socialcert\local\tenant_config;
 use mod_customcert\certificate;
 
 defined('MOODLE_INTERNAL') || die();
@@ -190,6 +192,32 @@ final class external_share_state_test extends \externallib_advanced_testcase {
     }
 
     /**
+     * MDL-INT-016: The function demands the same capability as the panel, mod/customcert:receiveissue.
+     *
+     * The panel is only offered to users who receive the certificate. A user who can view the
+     * activity but cannot receive an issue has no certificate to share, so the web service must
+     * reject the call instead of answering on behalf of a panel that is never rendered.
+     */
+    public function test_request_without_the_receive_issue_capability_is_rejected(): void {
+        $this->resetAfterTest();
+        $fixture = $this->create_certificate_fixture();
+
+        $roleid = $this->getDataGenerator()->create_role(['shortname' => 'socialcertnoreceive']);
+        assign_capability('mod/customcert:receiveissue', CAP_PROHIBIT, $roleid, $fixture->modcontext->id, true);
+        role_assign($roleid, $fixture->student->id, $fixture->modcontext->id);
+        accesslib_clear_all_caches_for_unit_testing();
+
+        $this->setUser($fixture->student);
+
+        // The activity is still visible, so the rejection can only come from the missing capability.
+        $this->assertTrue(has_capability('mod/customcert:view', $fixture->modcontext));
+        $this->assertFalse(has_capability('mod/customcert:receiveissue', $fixture->modcontext));
+
+        $rejection = $this->capture_rejection($fixture->cmid);
+        $this->assertSame('nopermissions', $rejection->errorcode);
+    }
+
+    /**
      * MDL-INT-009: The function rejects zero, negative and non existing course module ids.
      */
     public function test_invalid_course_module_ids_are_rejected(): void {
@@ -237,8 +265,8 @@ final class external_share_state_test extends \externallib_advanced_testcase {
     public function test_state_reports_no_issue_before_the_certificate_is_obtained(): void {
         $this->resetAfterTest();
 
-        set_config('organizationid', '98765', 'local_socialcert');
-        set_config('enableai', 1, 'local_socialcert');
+        tenant_config::set('organizationid', '98765', tenancy::get_tenant_id());
+        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
 
         $fixture = $this->create_certificate_fixture();
         $this->setUser($fixture->student);
@@ -268,8 +296,8 @@ final class external_share_state_test extends \externallib_advanced_testcase {
 
         $this->resetAfterTest();
 
-        set_config('organizationid', '98765', 'local_socialcert');
-        set_config('enableai', 1, 'local_socialcert');
+        tenant_config::set('organizationid', '98765', tenancy::get_tenant_id());
+        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
 
         $fixture = $this->create_certificate_fixture();
         $this->setUser($fixture->student);
@@ -301,8 +329,8 @@ final class external_share_state_test extends \externallib_advanced_testcase {
     public function test_state_stays_disabled_when_the_organization_id_is_not_configured(): void {
         $this->resetAfterTest();
 
-        set_config('organizationid', '', 'local_socialcert');
-        set_config('enableai', 1, 'local_socialcert');
+        tenant_config::set('organizationid', '', tenancy::get_tenant_id());
+        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
 
         $fixture = $this->create_certificate_fixture();
         $this->setUser($fixture->student);
@@ -329,7 +357,7 @@ final class external_share_state_test extends \externallib_advanced_testcase {
     public function test_state_belongs_only_to_the_session_user(): void {
         $this->resetAfterTest();
 
-        set_config('organizationid', '98765', 'local_socialcert');
+        tenant_config::set('organizationid', '98765', tenancy::get_tenant_id());
 
         $fixture = $this->create_certificate_fixture();
         $other = $this->getDataGenerator()->create_user();
@@ -353,8 +381,8 @@ final class external_share_state_test extends \externallib_advanced_testcase {
     public function test_state_reports_the_assistant_as_unavailable_when_the_ai_is_disabled(): void {
         $this->resetAfterTest();
 
-        set_config('organizationid', '98765', 'local_socialcert');
-        set_config('enableai', 0, 'local_socialcert');
+        tenant_config::set('organizationid', '98765', tenancy::get_tenant_id());
+        tenant_config::set('enableai', 0, tenancy::get_tenant_id());
 
         $fixture = $this->create_certificate_fixture();
         $this->setUser($fixture->student);
@@ -388,9 +416,9 @@ final class external_share_state_test extends \externallib_advanced_testcase {
 
         $CFG->fullnamedisplay = 'firstname lastname';
 
-        set_config('organizationid', '98765', 'local_socialcert');
-        set_config('organizationname', 'Buen Data', 'local_socialcert');
-        set_config('enableai', 1, 'local_socialcert');
+        tenant_config::set('organizationid', '98765', tenancy::get_tenant_id());
+        tenant_config::set('organizationname', 'Buen Data', tenancy::get_tenant_id());
+        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
 
         $fixture = $this->create_certificate_fixture();
         $student = $this->getDataGenerator()->create_user([
@@ -442,8 +470,8 @@ final class external_share_state_test extends \externallib_advanced_testcase {
     public function test_assistant_card_context_survives_the_return_contract(): void {
         $this->resetAfterTest();
 
-        set_config('organizationid', '98765', 'local_socialcert');
-        set_config('enableai', 1, 'local_socialcert');
+        tenant_config::set('organizationid', '98765', tenancy::get_tenant_id());
+        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
 
         $fixture = $this->create_certificate_fixture('Diseño Gráfico Avanzado');
         $this->setUser($fixture->student);
@@ -469,8 +497,8 @@ final class external_share_state_test extends \externallib_advanced_testcase {
     public function test_absent_assistant_card_context_survives_the_return_contract(): void {
         $this->resetAfterTest();
 
-        set_config('organizationid', '98765', 'local_socialcert');
-        set_config('enableai', 1, 'local_socialcert');
+        tenant_config::set('organizationid', '98765', tenancy::get_tenant_id());
+        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
 
         $fixture = $this->create_certificate_fixture();
         $this->setUser($fixture->student);
@@ -568,7 +596,7 @@ final class external_share_state_test extends \externallib_advanced_testcase {
     public function test_share_url_of_an_accented_certificate_survives_the_return_contract(): void {
         $this->resetAfterTest();
 
-        set_config('organizationid', '98765', 'local_socialcert');
+        tenant_config::set('organizationid', '98765', tenancy::get_tenant_id());
 
         $fixture = $this->create_certificate_fixture('Diseño Gráfico Avanzado');
         $this->setUser($fixture->student);

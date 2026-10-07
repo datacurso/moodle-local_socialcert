@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<XMLDB PATH="local/socialcert/db" VERSION="20261006"
+    COMMENT="XMLDB file for Moodle local/socialcert"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd">
+    <TABLES>
+        <TABLE NAME="local_socialcert_tenant_config" COMMENT="Plugin configuration of every tenant (there is no site-wide layer)">
+            <FIELDS>
+                <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" />
+                <FIELD NAME="tenantid" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Workplace tenant the value belongs to" />
+                <FIELD NAME="name" TYPE="char" LENGTH="100" NOTNULL="true" SEQUENCE="false" COMMENT="Setting name" />
+                <FIELD NAME="value" TYPE="text" NOTNULL="true" SEQUENCE="false" COMMENT="Setting value" />
+            </FIELDS>
+            <KEYS>
+                <KEY NAME="primary" TYPE="primary" FIELDS="id" />
+                <KEY NAME="tenantid_name" TYPE="unique" FIELDS="tenantid, name" />
+            </KEYS>
+        </TABLE>
+    </TABLES>
+</XMLDB>

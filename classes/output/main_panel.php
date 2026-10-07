@@ -31,6 +31,7 @@ use context_course;
 use context_module;
 use core\context;
 use core_user;
+use local_socialcert\local\tenant_config;
 use moodle_url;
 
 /**
@@ -215,7 +216,7 @@ class main_panel implements renderable, templatable {
         return [
             'certname' => $state['certname'],
             'course'   => self::format_plain_name($course->fullname, context_course::instance($course->id)),
-            'org'      => (string) get_config('local_socialcert', 'organizationname'),
+            'org'      => (string) tenant_config::get('organizationname', ''),
         ];
     }
 
@@ -343,7 +344,7 @@ class main_panel implements renderable, templatable {
         // the users who reach the panel today. The web service revalidates the very same capability,
         // because hiding the card is not the control.
         $state['enableai'] = $state['hasissue']
-            && (bool) ((int) get_config('local_socialcert', 'enableai'))
+            && (bool) ((int) tenant_config::get('enableai', 1))
             && has_capability('local/socialcert:useaiassistant', $context, $userid);
 
         return $state;

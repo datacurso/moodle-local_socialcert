@@ -28,6 +28,9 @@
 require_once(__DIR__ . '/../../../../lib/behat/behat_base.php');
 
 use Behat\Behat\Tester\Exception\PendingException;
+use Behat\Gherkin\Node\TableNode;
+use local_socialcert\local\tenancy;
+use local_socialcert\local\tenant_config;
 
 /**
  * Step definitions for local_socialcert acceptance tests.
@@ -55,5 +58,22 @@ class behat_local_socialcert extends behat_base {
      */
     public function this_scenario_is_pending_because(string $reason): void {
         throw new PendingException($reason);
+    }
+
+    /**
+     * Stores plugin settings for the Workplace default tenant, the tenant the Behat users belong to.
+     *
+     * The settings are per tenant and have no site level value, so the config_plugins based step
+     * "the following config values are set as admin" does not reach them. The table needs the
+     * columns name and value.
+     *
+     * @Given /^the following socialcert tenant settings are set:$/
+     * @param TableNode $data Table with the columns name and value.
+     */
+    public function the_following_socialcert_tenant_settings_are_set(TableNode $data): void {
+        $tenantid = tenancy::get_default_tenant_id();
+        foreach ($data->getHash() as $row) {
+            tenant_config::set($row['name'], $row['value'], $tenantid);
+        }
     }
 }

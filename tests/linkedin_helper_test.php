@@ -26,6 +26,8 @@
 namespace local_socialcert;
 
 use local_socialcert\fixtures\customcert_dependency_trait;
+use local_socialcert\local\tenancy;
+use local_socialcert\local\tenant_config;
 use local_socialcert\output\linkedin_helper;
 use local_socialcert\output\main_panel;
 use mod_customcert\certificate;
@@ -62,7 +64,7 @@ final class linkedin_helper_test extends \advanced_testcase {
     public function test_url_targets_the_linkedin_form_with_every_credential_parameter(): void {
         $this->resetAfterTest();
         $this->setTimezone('UTC', 'UTC');
-        set_config('organizationid', '54321', 'local_socialcert');
+        tenant_config::set('organizationid', '54321', tenancy::get_tenant_id());
 
         $issuetime = gmmktime(12, 0, 0, 6, 15, 2025);
 
@@ -99,8 +101,8 @@ final class linkedin_helper_test extends \advanced_testcase {
     public function test_organization_name_is_never_sent_to_linkedin(): void {
         $this->resetAfterTest();
         $this->setTimezone('UTC', 'UTC');
-        set_config('organizationid', '98765', 'local_socialcert');
-        set_config('organizationname', 'Datacurso Formacion', 'local_socialcert');
+        tenant_config::set('organizationid', '98765', tenancy::get_tenant_id());
+        tenant_config::set('organizationname', 'Datacurso Formacion', tenancy::get_tenant_id());
 
         $url = linkedin_helper::build_linkedin_url(
             'AI Fundamentals',
@@ -126,7 +128,7 @@ final class linkedin_helper_test extends \advanced_testcase {
     public function test_special_characters_are_encoded_following_rfc3986(): void {
         $this->resetAfterTest();
         $this->setTimezone('UTC', 'UTC');
-        set_config('organizationid', '54321', 'local_socialcert');
+        tenant_config::set('organizationid', '54321', tenancy::get_tenant_id());
 
         $certname = 'Diseño Gráfico "Avanzado" para Niños';
 
@@ -170,7 +172,7 @@ final class linkedin_helper_test extends \advanced_testcase {
     ): void {
         $this->resetAfterTest();
         $this->setTimezone($timezone, $timezone);
-        set_config('organizationid', '54321', 'local_socialcert');
+        tenant_config::set('organizationid', '54321', tenancy::get_tenant_id());
 
         $url = linkedin_helper::build_linkedin_url(
             'AI Fundamentals',
@@ -183,6 +185,62 @@ final class linkedin_helper_test extends \advanced_testcase {
 
         $this->assertSame($expectedyear, $params['issueYear']);
         $this->assertSame($expectedmonth, $params['issueMonth']);
+    }
+
+    /**
+     * The issue month and year follow the timezone of the user when it differs from the server one.
+     *
+     * The user sees the certificate dates in their own timezone, so LinkedIn must receive the same
+     * month and year instead of the ones of the server.
+     */
+    public function test_issue_month_and_year_follow_the_user_timezone_over_the_server_one(): void {
+        $this->resetAfterTest();
+        $this->setTimezone('UTC', 'UTC');
+        tenant_config::set('organizationid', '54321', tenancy::get_tenant_id());
+
+        $user = $this->getDataGenerator()->create_user(['timezone' => 'Pacific/Auckland']);
+        $this->setUser($user);
+
+        // 23:30 UTC on 31 December is already 1 January in Auckland.
+        $url = linkedin_helper::build_linkedin_url(
+            'AI Fundamentals',
+            gmmktime(23, 30, 0, 12, 31, 2024),
+            self::VERIFY_URL,
+            'ABC1234567',
+            gmmktime(23, 30, 0, 6, 30, 2027)
+        );
+
+        $params = self::query_params($url);
+
+        $this->assertSame('2025', $params['issueYear']);
+        $this->assertSame('1', $params['issueMonth']);
+        $this->assertSame('2027', $params['expirationYear']);
+        $this->assertSame('7', $params['expirationMonth']);
+    }
+
+    /**
+     * A user on a negative offset sees the previous month, even when the server timezone is ahead.
+     */
+    public function test_user_timezone_behind_the_server_moves_the_issue_date_back(): void {
+        $this->resetAfterTest();
+        $this->setTimezone('Pacific/Auckland', 'Pacific/Auckland');
+        tenant_config::set('organizationid', '54321', tenancy::get_tenant_id());
+
+        $user = $this->getDataGenerator()->create_user(['timezone' => 'America/Lima']);
+        $this->setUser($user);
+
+        // 00:30 UTC on 1 January is still 31 December in Lima.
+        $url = linkedin_helper::build_linkedin_url(
+            'AI Fundamentals',
+            gmmktime(0, 30, 0, 1, 1, 2025),
+            self::VERIFY_URL,
+            'ABC1234567'
+        );
+
+        $params = self::query_params($url);
+
+        $this->assertSame('2024', $params['issueYear']);
+        $this->assertSame('12', $params['issueMonth']);
     }
 
     /**
@@ -214,7 +272,7 @@ final class linkedin_helper_test extends \advanced_testcase {
     public function test_expiration_year_and_month_are_added_when_an_expiry_time_is_supplied(): void {
         $this->resetAfterTest();
         $this->setTimezone('UTC', 'UTC');
-        set_config('organizationid', '54321', 'local_socialcert');
+        tenant_config::set('organizationid', '54321', tenancy::get_tenant_id());
 
         $url = linkedin_helper::build_linkedin_url(
             'AI Fundamentals',
@@ -239,7 +297,7 @@ final class linkedin_helper_test extends \advanced_testcase {
     public function test_expiration_fields_are_absent_when_no_expiry_time_is_supplied(): void {
         $this->resetAfterTest();
         $this->setTimezone('UTC', 'UTC');
-        set_config('organizationid', '54321', 'local_socialcert');
+        tenant_config::set('organizationid', '54321', tenancy::get_tenant_id());
 
         $url = linkedin_helper::build_linkedin_url(
             'AI Fundamentals',
@@ -264,7 +322,7 @@ final class linkedin_helper_test extends \advanced_testcase {
     public function test_panel_forwards_the_certificate_expiry_date_to_linkedin(): void {
         $this->resetAfterTest();
         $this->setTimezone('UTC', 'UTC');
-        set_config('organizationid', '54321', 'local_socialcert');
+        tenant_config::set('organizationid', '54321', tenancy::get_tenant_id());
 
         if (!class_exists('\customcertelement_expiry\element')) {
             $this->markTestSkipped('The customcertelement_expiry subplugin is not installed on this site.');
@@ -294,7 +352,7 @@ final class linkedin_helper_test extends \advanced_testcase {
         $this->require_customcert();
         $this->resetAfterTest();
         $this->setTimezone('UTC', 'UTC');
-        set_config('organizationid', '54321', 'local_socialcert');
+        tenant_config::set('organizationid', '54321', tenancy::get_tenant_id());
 
         $generator = $this->getDataGenerator();
         $course = $generator->create_course();
@@ -376,7 +434,7 @@ final class linkedin_helper_test extends \advanced_testcase {
     public function test_ten_character_alphanumeric_code_travels_unchanged(): void {
         $this->resetAfterTest();
         $this->setTimezone('UTC', 'UTC');
-        set_config('organizationid', '54321', 'local_socialcert');
+        tenant_config::set('organizationid', '54321', tenancy::get_tenant_id());
 
         $code = 'a1B2c3D4e5';
         $verifyurl = 'https://example.com/mod/customcert/verify_certificate.php?code=' . $code;
@@ -402,7 +460,7 @@ final class linkedin_helper_test extends \advanced_testcase {
     public function test_numeric_hyphenated_code_travels_unchanged(): void {
         $this->resetAfterTest();
         $this->setTimezone('UTC', 'UTC');
-        set_config('organizationid', '54321', 'local_socialcert');
+        tenant_config::set('organizationid', '54321', tenancy::get_tenant_id());
 
         $code = '1234-5678-9012';
         $verifyurl = 'https://example.com/mod/customcert/verify_certificate.php?code=' . $code;
