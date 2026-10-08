@@ -116,7 +116,9 @@ final class admin_tree_test extends \advanced_testcase {
             array_unshift($expected, 'tenantscopenotice');
         }
         $this->assertSame($expected, array_keys($names));
-        $this->assertInstanceOf(\local_socialcert\admin\setting_tenant_scope_notice::class, $names['tenantscopenotice']);
+        if (\local_socialcert\local\tenancy::is_available()) {
+            $this->assertInstanceOf(\local_socialcert\admin\setting_tenant_scope_notice::class, $names['tenantscopenotice']);
+        }
         $this->assertInstanceOf(\local_socialcert\admin\setting_configtext::class, $names['organizationid']);
         $this->assertInstanceOf(\local_socialcert\admin\setting_configtext::class, $names['organizationname']);
         $this->assertInstanceOf(\local_socialcert\admin\setting_configcheckbox::class, $names['enableai']);
