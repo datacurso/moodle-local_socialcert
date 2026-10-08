@@ -26,6 +26,8 @@
 namespace local_socialcert;
 
 use local_socialcert\fixtures\customcert_dependency_trait;
+use local_socialcert\local\tenancy;
+use local_socialcert\local\tenant_config;
 use local_socialcert\output\main_panel;
 use mod_customcert\certificate;
 
@@ -63,8 +65,8 @@ final class ai_card_availability_test extends \advanced_testcase {
     public function test_ai_assistant_is_not_available_without_an_issued_certificate(): void {
         $this->resetAfterTest();
 
-        set_config('organizationid', '12345', 'local_socialcert');
-        set_config('enableai', 1, 'local_socialcert');
+        tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
+        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
 
         $scenario = $this->create_certificate_scenario();
         $this->setUser($scenario->student);
@@ -88,7 +90,7 @@ final class ai_card_availability_test extends \advanced_testcase {
     public function test_no_generation_context_is_exported_without_an_issued_certificate(): void {
         $this->resetAfterTest();
 
-        set_config('enableai', 1, 'local_socialcert');
+        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
 
         $scenario = $this->create_certificate_scenario();
         $this->setUser($scenario->student);
@@ -107,8 +109,8 @@ final class ai_card_availability_test extends \advanced_testcase {
     public function test_ai_assistant_is_not_available_when_the_ai_is_disabled_globally(): void {
         $this->resetAfterTest();
 
-        set_config('organizationid', '12345', 'local_socialcert');
-        set_config('enableai', 0, 'local_socialcert');
+        tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
+        tenant_config::set('enableai', 0, tenancy::get_tenant_id());
 
         $scenario = $this->create_certificate_scenario();
         $this->setUser($scenario->student);
@@ -130,8 +132,8 @@ final class ai_card_availability_test extends \advanced_testcase {
     public function test_ai_assistant_is_available_with_an_issue_and_the_ai_enabled(): void {
         $this->resetAfterTest();
 
-        set_config('organizationid', '12345', 'local_socialcert');
-        set_config('enableai', 1, 'local_socialcert');
+        tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
+        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
 
         $scenario = $this->create_certificate_scenario();
         $this->setUser($scenario->student);
@@ -158,8 +160,8 @@ final class ai_card_availability_test extends \advanced_testcase {
 
         $this->resetAfterTest();
 
-        set_config('organizationid', '12345', 'local_socialcert');
-        set_config('enableai', 1, 'local_socialcert');
+        tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
+        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
 
         $scenario = $this->create_certificate_scenario();
         $this->setUser($scenario->student);
@@ -186,8 +188,8 @@ final class ai_card_availability_test extends \advanced_testcase {
 
         $this->resetAfterTest();
 
-        set_config('organizationid', '12345', 'local_socialcert');
-        set_config('enableai', 1, 'local_socialcert');
+        tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
+        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
 
         $scenario = $this->create_certificate_scenario();
         $this->setUser($scenario->student);

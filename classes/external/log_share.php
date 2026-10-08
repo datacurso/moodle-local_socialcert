@@ -67,7 +67,7 @@ class log_share extends external_api {
      * Records that the session user shared the credential of a certificate activity.
      *
      * The access rules are the ones of the panel: an active session with access to the activity, the
-     * mod/customcert:view capability and the local/socialcert:viewsharepanel capability, on a course
+     * mod/customcert:receiveissue capability and the local/socialcert:viewsharepanel capability, on a course
      * module that really is a custom certificate.
      *
      * The business rules of the panel are revalidated too, so the log can never record a share that
@@ -88,7 +88,7 @@ class log_share extends external_api {
 
         $context = \context_module::instance($params['cmid']);
         self::validate_context($context);
-        require_capability('mod/customcert:view', $context);
+        require_capability('mod/customcert:receiveissue', $context);
         require_capability('local/socialcert:viewsharepanel', $context);
 
         $cm = get_coursemodule_from_id('', $params['cmid'], 0, false, MUST_EXIST);

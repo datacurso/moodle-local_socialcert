@@ -31,10 +31,11 @@ Feature: AI assistant card on the certificate share panel
     And the following "activities" exist:
       | activity   | name               | intro                    | course | idnumber | deliveryoption |
       | customcert | Course certificate | Course certificate intro | C1     | cert1    | D              |
-    And the following config values are set as admin:
-      | organizationid   | 98765     | local_socialcert |
-      | organizationname | Buen Data | local_socialcert |
-      | enableai         | 1         | local_socialcert |
+    And the following socialcert tenant settings are set:
+      | name             | value     |
+      | organizationid   | 98765     |
+      | organizationname | Buen Data |
+      | enableai         | 1         |
 
   # Visual layer of MDL-INT-001 step 4. The certificate is issued first on purpose: the assistant is
   # only available to a user with an issued certificate, which MDL-E2E-004 covers on the service
@@ -52,8 +53,9 @@ Feature: AI assistant card on the certificate share panel
 
   @MDL-INT-001
   Scenario: Disabling AI removes the assistant card and keeps the share button available
-    Given the following config values are set as admin:
-      | enableai | 0 | local_socialcert |
+    Given the following socialcert tenant settings are set:
+      | name     | value |
+      | enableai | 0     |
     When I am on the "Course certificate" "customcert activity" page logged in as "student1"
     And I press "View certificate"
     And I am on the "Course certificate" "customcert activity" page

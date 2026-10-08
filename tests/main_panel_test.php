@@ -26,6 +26,8 @@
 namespace local_socialcert;
 
 use local_socialcert\fixtures\customcert_dependency_trait;
+use local_socialcert\local\tenancy;
+use local_socialcert\local\tenant_config;
 use local_socialcert\output\main_panel;
 use mod_customcert\certificate;
 
@@ -57,7 +59,7 @@ final class main_panel_test extends \advanced_testcase {
         global $DB;
         $this->resetAfterTest();
 
-        set_config('organizationid', '12345', 'local_socialcert');
+        tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
         $scenario = $this->create_certificate_scenario('Machine Learning 101', 'AI Fundamentals');
         $this->setUser($scenario->student);
 
@@ -87,7 +89,7 @@ final class main_panel_test extends \advanced_testcase {
     public function test_share_action_is_disabled_when_the_session_user_has_no_issue(): void {
         $this->resetAfterTest();
 
-        set_config('organizationid', '12345', 'local_socialcert');
+        tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
         $scenario = $this->create_certificate_scenario('Machine Learning 101', 'AI Fundamentals');
         $this->setUser($scenario->student);
 
@@ -130,7 +132,7 @@ final class main_panel_test extends \advanced_testcase {
         global $DB;
         $this->resetAfterTest();
 
-        set_config('organizationid', '12345', 'local_socialcert');
+        tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
         $scenario = $this->create_certificate_scenario('Machine Learning 101', 'AI Fundamentals');
 
         $generator = $this->getDataGenerator();
@@ -173,7 +175,7 @@ final class main_panel_test extends \advanced_testcase {
     public function test_error_notice_distinguishes_actionable_from_non_actionable_situations(): void {
         $this->resetAfterTest();
 
-        set_config('organizationid', '12345', 'local_socialcert');
+        tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
 
         $scenario = $this->create_certificate_scenario('Machine Learning 101', 'AI Fundamentals');
         $this->setUser($scenario->student);
@@ -188,7 +190,7 @@ final class main_panel_test extends \advanced_testcase {
         // With the certificate already issued and the organization ID missing the notice points at
         // the site configuration instead of asking again for a certificate that already exists.
         certificate::issue_certificate($scenario->customcert->id, $scenario->student->id);
-        set_config('organizationid', '', 'local_socialcert');
+        tenant_config::set('organizationid', '', tenancy::get_tenant_id());
         $data = $this->export_panel($scenario->customcert->cmid);
         $this->assertTrue($data['issued'], 'The share action stays disabled without the organization ID.');
         $this->assertSame(get_string('certerrornoorg', 'local_socialcert'), $data['certerror']);
@@ -243,7 +245,7 @@ final class main_panel_test extends \advanced_testcase {
     public function test_accented_certificate_and_course_names_are_exported_unaltered(): void {
         $this->resetAfterTest();
 
-        set_config('organizationid', '12345', 'local_socialcert');
+        tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
         $scenario = $this->create_certificate_scenario('Programación en Español', 'Diseño Gráfico Avanzado');
         $this->setUser($scenario->student);
         certificate::issue_certificate($scenario->customcert->id, $scenario->student->id);
@@ -264,8 +266,8 @@ final class main_panel_test extends \advanced_testcase {
     public function test_organization_name_is_exported_as_panel_data_only(): void {
         $this->resetAfterTest();
 
-        set_config('organizationid', '12345', 'local_socialcert');
-        set_config('organizationname', 'Datacurso Formación', 'local_socialcert');
+        tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
+        tenant_config::set('organizationname', 'Datacurso Formación', tenancy::get_tenant_id());
 
         $scenario = $this->create_certificate_scenario('Machine Learning 101', 'AI Fundamentals');
         $this->setUser($scenario->student);
@@ -323,7 +325,7 @@ final class main_panel_test extends \advanced_testcase {
         $this->resetAfterTest();
 
         $CFG->formatstringstriptags = $striptags;
-        set_config('organizationid', '12345', 'local_socialcert');
+        tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
 
         $scenario = $this->create_certificate_scenario('Research & Development', 'Data & Skills');
         $this->setUser($scenario->student);
@@ -408,7 +410,7 @@ final class main_panel_test extends \advanced_testcase {
     public function test_share_action_is_disabled_when_the_organization_id_is_not_configured(): void {
         $this->resetAfterTest();
 
-        set_config('organizationid', '', 'local_socialcert');
+        tenant_config::set('organizationid', '', tenancy::get_tenant_id());
 
         $scenario = $this->create_certificate_scenario('Machine Learning 101', 'AI Fundamentals');
         $this->setUser($scenario->student);

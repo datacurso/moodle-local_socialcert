@@ -1,3 +1,27 @@
+## [1.2.0-wp] - 2026-10-06
+
+**Compatibility note:** This version is compatible only with **Moodle Workplace 4.5**.
+
+### 🚀 Added
+
+- Store the plugin settings (LinkedIn organization ID, LinkedIn organization name and AI assistant toggle) per Workplace tenant, so every tenant publishes its certificates under its own LinkedIn organization and decides on its own whether the AI assistant is available
+- Add the local/socialcert:managetenantsettings capability, granted by default to the manager archetype and to the tenant administrator role, so tenant administrators can open the settings page of their own tenant
+- Show a notice at the top of the settings page naming the tenant the settings apply to
+- Delete the settings of a tenant when the tenant is deleted
+
+### 🔧 Changed
+
+- Require Moodle Workplace: the plugin now depends on tool_tenant and supports only Moodle 4.5
+- Move the former site-wide settings to the default tenant on upgrade; there is no site-wide value and no inheritance between tenants, so a tenant without an organization ID gets no LinkedIn share link
+- Require mod/customcert:receiveissue, the same capability the panel demands, in the local_socialcert_get_share_state, local_socialcert_log_share and local_socialcert_get_ai_response web services instead of mod/customcert:view
+- Reword the strings that told the site administrator to configure the plugin, which is now a task of the tenant administrator
+- Install, upgrade and run the plugin and its tests on sites without tool_tenant (plain Moodle): every tenancy call goes through one wrapper, the settings then apply to a single implicit tenant (id 0), and the tests that need Workplace are skipped
+
+### 🐞 Fixed
+
+- Resolve the issue and expiry month and year sent to LinkedIn in the timezone of the user instead of the one of the server, so they match the dates the user sees
+- Correct the file descriptions of settings.php, db/hooks.php and db/services.php
+
 ## [1.1.4] - 2026-10-02
 
 **Compatibility note:** This version is compatible from **Moodle 4.5** to **Moodle 5.2**.

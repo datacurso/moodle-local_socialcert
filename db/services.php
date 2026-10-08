@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Plugin version and other meta-data are defined here.
+ * External functions and services declared by local_socialcert.
  *
  * @package     local_socialcert
  * @copyright   2025 Manuel Bojaca <manuel@buendata.com>

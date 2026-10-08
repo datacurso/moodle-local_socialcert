@@ -24,6 +24,8 @@
 
 namespace local_socialcert\output;
 
+use local_socialcert\local\tenant_config;
+
 /**
  * Helper class for building LinkedIn profile URLs.
  *
@@ -44,7 +46,7 @@ class linkedin_helper {
      *
      * Required params for our MVP:
      * - name: Certificate name to display in LinkedIn.
-     * - organizationId: Admin-configured LinkedIn org/company ID (global setting).
+     * - organizationId: LinkedIn org/company ID configured for the tenant of the current user.
      * - issueYear & issueMonth: From the certificate issue time.
      * - certUrl: Public verification URL (must be accessible without login).
      * - certId: Unique certificate id/code.
@@ -65,7 +67,7 @@ class linkedin_helper {
     ): ?string {
         // No organization may be invented here: publishing the credential under a foreign
         // organization ID would attribute it to a third party. Without the setting there is no URL.
-        $orgid = trim((string) get_config('local_socialcert', 'organizationid'));
+        $orgid = trim((string) tenant_config::get('organizationid', ''));
         if ($orgid === '') {
             return null;
         }
@@ -74,18 +76,32 @@ class linkedin_helper {
             'startTask' => 'CERTIFICATION_NAME',
             'name'      => $certname,
             'organizationId' => $orgid,
-            'issueYear'  => (int) date(format: 'Y', timestamp: $issueunixtime),
-            'issueMonth' => (int) date(format: 'n', timestamp: $issueunixtime),
+            'issueYear'  => self::get_user_date_part($issueunixtime, '%Y'),
+            'issueMonth' => self::get_user_date_part($issueunixtime, '%m'),
             'certUrl'    => $certurl,
             'certId'     => $certid,
         ];
 
         if (!empty($expiryunixtime)) {
-            $params['expirationYear']  = (int) date(format: 'Y', timestamp: $expiryunixtime);
-            $params['expirationMonth'] = (int) date(format: 'n', timestamp: $expiryunixtime);
+            $params['expirationYear']  = self::get_user_date_part($expiryunixtime, '%Y');
+            $params['expirationMonth'] = self::get_user_date_part($expiryunixtime, '%m');
         }
 
         $query = http_build_query(data: $params, numeric_prefix: '', arg_separator: '&', encoding_type: PHP_QUERY_RFC3986);
         return 'https://www.linkedin.com/profile/add?' . $query;
+    }
+
+    /**
+     * Returns one numeric part of a timestamp resolved in the timezone of the current user.
+     *
+     * The user sees the certificate dates in their own timezone, so LinkedIn must receive the same
+     * month and year instead of the ones of the server.
+     *
+     * @param int    $timestamp UNIX timestamp.
+     * @param string $format    Date format of a single numeric part ('%Y' or '%m').
+     * @return int The requested part without leading zeros.
+     */
+    private static function get_user_date_part(int $timestamp, string $format): int {
+        return (int) userdate($timestamp, $format, 99, false);
     }
 }

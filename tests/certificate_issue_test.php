@@ -26,6 +26,8 @@
 namespace local_socialcert;
 
 use local_socialcert\fixtures\customcert_dependency_trait;
+use local_socialcert\local\tenancy;
+use local_socialcert\local\tenant_config;
 use local_socialcert\output\main_panel;
 use mod_customcert\certificate;
 use mod_customcert\task\issue_certificates_task;
@@ -74,7 +76,7 @@ final class certificate_issue_test extends \advanced_testcase {
         global $DB;
         $this->resetAfterTest();
 
-        set_config('organizationid', '12345', 'local_socialcert');
+        tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
         $scenario = $this->create_certificate_scenario();
         $this->setUser($scenario->student);
 
@@ -96,7 +98,7 @@ final class certificate_issue_test extends \advanced_testcase {
         global $DB;
         $this->resetAfterTest();
 
-        set_config('organizationid', '12345', 'local_socialcert');
+        tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
         $scenario = $this->create_certificate_scenario();
         $this->setUser($scenario->student);
 
@@ -137,7 +139,7 @@ final class certificate_issue_test extends \advanced_testcase {
     public function test_panel_state_ignores_the_activity_email_settings(): void {
         $this->resetAfterTest();
 
-        set_config('organizationid', '12345', 'local_socialcert');
+        tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
         $scenario = $this->create_certificate_scenario([
             'emailstudents' => 1,
             'emailteachers' => 1,
@@ -163,7 +165,7 @@ final class certificate_issue_test extends \advanced_testcase {
         global $DB;
         $this->resetAfterTest();
 
-        set_config('organizationid', '12345', 'local_socialcert');
+        tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
         set_config('certificateexecutionperiod', 0, 'customcert');
         set_config('useadhoc', 1, 'customcert');
 
@@ -247,7 +249,7 @@ final class certificate_issue_test extends \advanced_testcase {
         global $DB;
         $this->resetAfterTest();
 
-        set_config('organizationid', '12345', 'local_socialcert');
+        tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
         $scenario = $this->create_certificate_scenario();
 
         $generator = $this->getDataGenerator();

@@ -70,4 +70,16 @@ $capabilities = [
             'student' => CAP_ALLOW,
         ],
     ],
+
+    // Who may change the plugin settings of the tenant they are in. The settings are stored per
+    // tenant, so the capability is granted to the tenant administrator role as well as to the
+    // site managers.
+    'local/socialcert:managetenantsettings' => [
+        'riskbitmask'  => RISK_CONFIG,
+        'captype'      => 'write',
+        'contextlevel' => CONTEXT_SYSTEM,
+        'archetypes'   => [
+            'manager' => CAP_ALLOW,
+        ],
+    ],
 ];

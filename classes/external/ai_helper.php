@@ -30,6 +30,7 @@ use core_external\external_single_structure;
 use core_external\external_value;
 use aiprovider_datacurso\httpclient\ai_services_api;
 use local_socialcert\event\ai_text_generated;
+use local_socialcert\local\tenant_config;
 use local_socialcert\output\main_panel;
 
 /**
@@ -127,14 +128,14 @@ class ai_helper extends external_api {
             }
             $context = \context_module::instance($params['cmid']);
             self::validate_context($context);
-            require_capability('mod/customcert:view', $context);
+            require_capability('mod/customcert:receiveissue', $context);
 
             // The capability of the assistant is revalidated here for the same reason the rest of
             // the rules are: hiding the card in the interface does not stop a direct call to the web
             // service from spending credits.
             require_capability('local/socialcert:useaiassistant', $context);
 
-            if (!((int) get_config('local_socialcert', 'enableai'))) {
+            if (!((int) tenant_config::get('enableai', 1))) {
                 throw new \moodle_exception('aidisabled', 'local_socialcert');
             }
 

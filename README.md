@@ -21,11 +21,11 @@ The plugin does not modify *Custom certificate*: it adds its own panel at the en
 
 ## Prerequisites
 
-* **Moodle 4.5** to **Moodle 5.2**.
+* **Moodle Workplace 4.5** (`tool_tenant`).
 * **[Custom certificate](https://moodle.org/plugins/mod_customcert)** (`mod_customcert`), minimum version **2024042212**.
 * **[DataCurso AI Provider](https://moodle.org/plugins/aiprovider_datacurso/versions)** (`aiprovider_datacurso`), minimum version **2025100201**, configured with a valid licence key. See [Getting license keys](https://docs.datacurso.com/index.php?title=Datacurso_AI_Provider#Getting_license_keys).
 
-> **Both plugins are required dependencies:** Moodle will not install Share Certificate AI until they are present. The share button works without a licence key, but the AI assistant needs the provider installed **and** licensed.
+> **These plugins are required dependencies:** Moodle will not install Share Certificate AI until they are present. The share button works without a licence key, but the AI assistant needs the provider installed **and** licensed.
 
 ---
 
@@ -54,9 +54,9 @@ The plugin does not modify *Custom certificate*: it adds its own panel at the en
 
 ## Plugin configuration
 
-1. **Sign in as a site administrator.**
-2. Navigate to **Site administration → Plugins → Local plugins → Share Certificate AI**.
-3. Review and complete the settings:
+1. **Sign in as a tenant administrator** (or as a site administrator who switched to the tenant).
+2. Navigate to **Site administration → Plugins → Local plugins → Share Certificate AI** (tenant administrators find it under **Courses**).
+3. Review and complete the settings. They belong to the tenant you are in, a notice at the top of the page names it: every tenant is independent and there is no site-wide value to fall back to.
 
    * **LinkedIn organization ID** (`organizationid`) — **required to share**.
 
@@ -66,7 +66,7 @@ The plugin does not modify *Custom certificate*: it adds its own panel at the en
 
      * Used only as context for the AI assistant when it drafts the post. It is **not** sent to LinkedIn: LinkedIn resolves the organization from the ID above.
      * Enter the **exact name as it appears on LinkedIn** so the drafted text matches the page.
-   * **Enable AI to suggest post text** (`enableai`) — *global toggle*, enabled by default.
+   * **Enable AI to suggest post text** (`enableai`) — *per-tenant toggle*, enabled by default.
 
      * When enabled, learners with an issued certificate see the AI assistant in the panel.
      * When disabled, the assistant is hidden and the AI service is never contacted; the share button stays available.

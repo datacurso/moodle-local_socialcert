@@ -26,6 +26,8 @@
 namespace local_socialcert;
 
 use local_socialcert\fixtures\customcert_dependency_trait;
+use local_socialcert\local\tenancy;
+use local_socialcert\local\tenant_config;
 use local_socialcert\output\main_panel;
 use mod_customcert\certificate;
 
@@ -65,7 +67,7 @@ final class share_link_verifiability_test extends \advanced_testcase {
     public function test_share_link_is_withheld_or_flagged_when_public_verification_is_disabled(): void {
         $this->resetAfterTest();
 
-        set_config('organizationid', '12345', 'local_socialcert');
+        tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
 
         // Platform default configuration: no site wide verification, no open verification.
         set_config('verifyallcertificates', 0, 'customcert');
@@ -123,7 +125,7 @@ final class share_link_verifiability_test extends \advanced_testcase {
         global $DB;
         $this->resetAfterTest();
 
-        set_config('organizationid', '12345', 'local_socialcert');
+        tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
         set_config('verifyallcertificates', 1, 'customcert');
 
         $scenario = $this->create_certificate_scenario(['verifyany' => 1]);

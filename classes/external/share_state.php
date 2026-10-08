@@ -60,7 +60,7 @@ class share_state extends external_api {
      * Returns the state of the share panel for the session user.
      *
      * The access rules are the ones the panel itself is subject to: an active session with access
-     * to the activity, the mod/customcert:view capability and the local/socialcert:viewsharepanel
+     * to the activity, the mod/customcert:receiveissue capability and the local/socialcert:viewsharepanel
      * capability, on a course module that really is a custom certificate.
      *
      * Unlike ai_helper::execute(), the rejections are not converted into a payload: this function
@@ -82,7 +82,7 @@ class share_state extends external_api {
 
         $context = \context_module::instance($params['cmid']);
         self::validate_context($context);
-        require_capability('mod/customcert:view', $context);
+        require_capability('mod/customcert:receiveissue', $context);
 
         // A role without the capability of the panel has no panel to report the state of, so the
         // request is rejected here as well and not only in the footer callback that renders it.

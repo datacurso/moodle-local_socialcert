@@ -25,6 +25,8 @@ use local_socialcert\external\ai_helper;
 use local_socialcert\fixtures\customcert_dependency_trait;
 use local_socialcert\fixtures\stub_ai_services_api;
 use local_socialcert\fixtures\testable_ai_helper;
+use local_socialcert\local\tenancy;
+use local_socialcert\local\tenant_config;
 use local_socialcert\output\main_panel;
 
 defined('MOODLE_INTERNAL') || die();
@@ -349,7 +351,7 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
 
         $fixture = $this->create_certificate_fixture();
         $this->issue_certificate($fixture->customcert, $fixture->student);
-        set_config('enableai', 1, 'local_socialcert');
+        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
         $this->setUser($fixture->student);
 
         $sink = $this->redirectEvents();
@@ -382,9 +384,9 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
         $DB->set_field('course', 'fullname', 'Data & Skills 101', ['id' => $fixture->course->id]);
         $DB->set_field('customcert', 'name', 'AI & Analytics Fundamentals', ['id' => $fixture->customcert->id]);
         rebuild_course_cache($fixture->course->id, true);
-        set_config('organizationname', 'Buen Data', 'local_socialcert');
+        tenant_config::set('organizationname', 'Buen Data', tenancy::get_tenant_id());
         $this->issue_certificate($fixture->customcert, $fixture->student);
-        set_config('enableai', 1, 'local_socialcert');
+        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
         $this->setUser($fixture->student);
 
         $result = $helper::execute($fixture->cmid, 'linkedin');
@@ -423,7 +425,7 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
 
         $fixture = $this->create_certificate_fixture();
         $this->issue_certificate($fixture->customcert, $fixture->student);
-        set_config('enableai', 1, 'local_socialcert');
+        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
         $this->setUser($fixture->student);
 
         $failure = new \moodle_exception('error_ratelimit_exceeded', 'aiprovider_datacurso', '', '12:00');
@@ -449,7 +451,7 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
 
         $fixture = $this->create_certificate_fixture();
         $this->issue_certificate($fixture->customcert, $fixture->student);
-        set_config('enableai', 1, 'local_socialcert');
+        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
         $this->setUser($fixture->student);
 
         $failure = new \moodle_exception('invalidrecord', 'error', '', 'customcert_issues');
@@ -493,7 +495,7 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
 
         $fixture = $this->create_certificate_fixture();
         $this->issue_certificate($fixture->customcert, $fixture->student);
-        set_config('enableai', 1, 'local_socialcert');
+        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
         $this->setUser($fixture->student);
 
         $helper::$client->failure = new $class($text);
@@ -577,7 +579,7 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
         $fixture = $this->create_certificate_fixture();
         $this->issue_certificate($fixture->customcert, $fixture->student);
         $this->disable_provider_license();
-        set_config('enableai', 0, 'local_socialcert');
+        tenant_config::set('enableai', 0, tenancy::get_tenant_id());
 
         $this->setUser($fixture->student);
 
@@ -597,7 +599,7 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
         $this->resetAfterTest();
         $fixture = $this->create_certificate_fixture();
         $this->disable_provider_license();
-        set_config('enableai', 1, 'local_socialcert');
+        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
 
         $this->setUser($fixture->student);
 
@@ -618,7 +620,7 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
         $this->resetAfterTest();
         $fixture = $this->create_certificate_fixture();
         $this->disable_provider_license();
-        set_config('enableai', 1, 'local_socialcert');
+        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
 
         $page = $this->getDataGenerator()->create_module('page', ['course' => $fixture->course->id]);
         $this->setUser($fixture->student);
@@ -750,7 +752,7 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
 
         $fixture = $this->create_certificate_fixture();
         $this->issue_certificate($fixture->customcert, $fixture->student);
-        set_config('enableai', 1, 'local_socialcert');
+        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
         $this->setUser($fixture->student);
 
         $result = $helper::execute($fixture->cmid);
@@ -777,7 +779,7 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
 
         $fixture = $this->create_certificate_fixture();
         $this->issue_certificate($fixture->customcert, $fixture->student);
-        set_config('enableai', 1, 'local_socialcert');
+        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
         $this->setUser($fixture->student);
 
         $sink = $this->redirectEvents();
@@ -809,7 +811,7 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
         $this->resetAfterTest();
         $fixture = $this->create_certificate_fixture();
         $this->disable_provider_license();
-        set_config('enableai', 1, 'local_socialcert');
+        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
         $this->setUser($fixture->student);
 
         $sink = $this->redirectEvents();
@@ -833,7 +835,7 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
         $fixture = $this->create_certificate_fixture();
         $this->issue_certificate($fixture->customcert, $fixture->student);
         $this->disable_provider_license();
-        set_config('enableai', 1, 'local_socialcert');
+        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
 
         $roleid = $this->getDataGenerator()->create_role(['shortname' => 'socialcertaidenied']);
         assign_capability('local/socialcert:useaiassistant', CAP_PROHIBIT, $roleid, $fixture->modcontext->id, true);
@@ -850,6 +852,38 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
         $this->flush_debugging();
 
         $this->assert_business_rejection($result, 'A request made without the capability of the assistant');
+        $this->assertSame('nopermissions', $result['errorcode'] ?? '');
+    }
+
+    /**
+     * MDL-INT-016: The function demands the same capability as the panel, mod/customcert:receiveissue.
+     *
+     * The panel is only offered to users who receive the certificate. A user who can view the
+     * activity but cannot receive an issue has no certificate to share, so the web service must
+     * reject the call instead of answering on behalf of a panel that is never rendered.
+     */
+    public function test_request_without_the_receive_issue_capability_is_rejected(): void {
+        $this->resetAfterTest();
+        $fixture = $this->create_certificate_fixture();
+        $this->issue_certificate($fixture->customcert, $fixture->student);
+        $this->disable_provider_license();
+        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
+
+        $roleid = $this->getDataGenerator()->create_role(['shortname' => 'socialcertnoreceive']);
+        assign_capability('mod/customcert:receiveissue', CAP_PROHIBIT, $roleid, $fixture->modcontext->id, true);
+        role_assign($roleid, $fixture->student->id, $fixture->modcontext->id);
+        accesslib_clear_all_caches_for_unit_testing();
+
+        $this->setUser($fixture->student);
+
+        // The activity is still visible, so the rejection can only come from the missing capability.
+        $this->assertTrue(has_capability('mod/customcert:view', $fixture->modcontext));
+        $this->assertFalse(has_capability('mod/customcert:receiveissue', $fixture->modcontext));
+
+        $result = ai_helper::execute($fixture->cmid);
+        $this->flush_debugging();
+
+        $this->assert_business_rejection($result, 'A request made without the capability to receive the certificate');
         $this->assertSame('nopermissions', $result['errorcode'] ?? '');
     }
 }
