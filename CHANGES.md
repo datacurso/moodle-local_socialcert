@@ -15,6 +15,7 @@
 - Move the former site-wide settings to the default tenant on upgrade; there is no site-wide value and no inheritance between tenants, so a tenant without an organization ID gets no LinkedIn share link
 - Require mod/customcert:receiveissue, the same capability the panel demands, in the local_socialcert_get_share_state, local_socialcert_log_share and local_socialcert_get_ai_response web services instead of mod/customcert:view
 - Reword the strings that told the site administrator to configure the plugin, which is now a task of the tenant administrator
+- Install, upgrade and run the plugin and its tests on sites without tool_tenant (plain Moodle): every tenancy call goes through one wrapper, the settings then apply to a single implicit tenant (id 0), and the tests that need Workplace are skipped
 
 ### 🐞 Fixed
 

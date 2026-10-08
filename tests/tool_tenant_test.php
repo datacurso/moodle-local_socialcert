@@ -26,6 +26,8 @@ namespace local_socialcert;
  * @covers     \local_socialcert\tool_tenant
  */
 final class tool_tenant_test extends \advanced_testcase {
+    use \local_socialcert\tests\requires_workplace;
+
     /** @var string[] Capabilities the tenant administrator must receive. */
     private const EXPECTED = [
         'local/socialcert:managetenantsettings',
@@ -66,6 +68,7 @@ final class tool_tenant_test extends \advanced_testcase {
      */
     public function test_tenant_admin_role_receives_the_capabilities(): void {
         global $DB;
+        $this->require_tool_tenant();
         $this->resetAfterTest();
 
         \tool_tenant\tenancy::add_plugin_capabilities_to_tenant_admin_role('local_socialcert');

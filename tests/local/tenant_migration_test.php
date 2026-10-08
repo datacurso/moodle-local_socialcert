@@ -26,13 +26,15 @@ namespace local_socialcert\local;
  * @covers     \local_socialcert\local\tenant_migration
  */
 final class tenant_migration_test extends \advanced_testcase {
+    use \local_socialcert\tests\requires_workplace;
+
     /**
      * Tenant-scoped settings move from config_plugins to the default tenant and are removed from config_plugins.
      */
     public function test_moves_tenant_settings_to_default_tenant(): void {
         $this->resetAfterTest();
         $this->setAdminUser();
-        $defaulttenantid = \tool_tenant\tenancy::get_default_tenant_id();
+        $defaulttenantid = tenancy::get_default_tenant_id();
 
         $settings = [
             'enableai' => '0',
@@ -58,6 +60,7 @@ final class tenant_migration_test extends \advanced_testcase {
      * Other tenants never receive the former site values.
      */
     public function test_other_tenants_receive_nothing(): void {
+        $this->require_tool_tenant();
         $this->resetAfterTest();
         $this->setAdminUser();
         $othertenantid = (int) $this->getDataGenerator()->get_plugin_generator('tool_tenant')->create_tenant()->id;
@@ -74,7 +77,7 @@ final class tenant_migration_test extends \advanced_testcase {
     public function test_leaves_non_setting_keys_untouched(): void {
         $this->resetAfterTest();
         $this->setAdminUser();
-        $defaulttenantid = \tool_tenant\tenancy::get_default_tenant_id();
+        $defaulttenantid = tenancy::get_default_tenant_id();
         $version = get_config('local_socialcert', 'version');
         set_config('someinternalflag', 'x', 'local_socialcert');
 
@@ -92,7 +95,7 @@ final class tenant_migration_test extends \advanced_testcase {
     public function test_existing_default_tenant_value_wins(): void {
         $this->resetAfterTest();
         $this->setAdminUser();
-        $defaulttenantid = \tool_tenant\tenancy::get_default_tenant_id();
+        $defaulttenantid = tenancy::get_default_tenant_id();
         tenant_config::set('organizationid', '777', $defaulttenantid);
         set_config('organizationid', '111', 'local_socialcert');
 
@@ -109,7 +112,7 @@ final class tenant_migration_test extends \advanced_testcase {
         global $DB;
         $this->resetAfterTest();
         $this->setAdminUser();
-        $defaulttenantid = \tool_tenant\tenancy::get_default_tenant_id();
+        $defaulttenantid = tenancy::get_default_tenant_id();
         set_config('organizationname', 'Datacurso', 'local_socialcert');
 
         tenant_migration::migrate_site_data_to_default_tenant();

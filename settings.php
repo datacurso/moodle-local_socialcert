@@ -37,7 +37,10 @@ $settings = new admin_settingpage(
 );
 $ADMIN->add($ADMIN->locate('localplugins') ? 'localplugins' : 'courses', $settings);
 
-$settings->add(new \local_socialcert\admin\setting_tenant_scope_notice('local_socialcert/tenantscopenotice'));
+// Without tool_tenant (plain Moodle LMS) there is a single implicit tenant to name.
+if (\local_socialcert\local\tenancy::is_available()) {
+    $settings->add(new \local_socialcert\admin\setting_tenant_scope_notice('local_socialcert/tenantscopenotice'));
+}
 
 $settings->add(new \local_socialcert\admin\setting_configtext(
     'local_socialcert/organizationid',

@@ -36,6 +36,8 @@ require_once($CFG->libdir . '/adminlib.php');
  * @covers     \local_socialcert\admin\setting_tenant_scope_notice
  */
 final class tenant_scoped_settings_test extends \advanced_testcase {
+    use \local_socialcert\tests\requires_workplace;
+
     /**
      * Creates a tenant with a user allocated to it and logs in as that user.
      *
@@ -43,6 +45,7 @@ final class tenant_scoped_settings_test extends \advanced_testcase {
      * @return int Tenant id.
      */
     private function login_into_new_tenant(string $name = 'Tenant'): int {
+        $this->require_tool_tenant();
         $this->setAdminUser();
         $generator = $this->getDataGenerator()->get_plugin_generator('tool_tenant');
         $tenantid = (int) $generator->create_tenant(['name' => $name])->id;

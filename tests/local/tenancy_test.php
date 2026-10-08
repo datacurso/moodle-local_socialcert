@@ -26,12 +26,15 @@ namespace local_socialcert\local;
  * @covers     \local_socialcert\local\tenancy
  */
 final class tenancy_test extends \advanced_testcase {
+    use \local_socialcert\tests\requires_workplace;
+
     /**
      * Returns the tool_tenant data generator.
      *
      * @return \tool_tenant_generator
      */
     private function tenant_generator(): \tool_tenant_generator {
+        $this->require_tool_tenant();
         return $this->getDataGenerator()->get_plugin_generator('tool_tenant');
     }
 
@@ -64,6 +67,7 @@ final class tenancy_test extends \advanced_testcase {
      * A user without an explicit allocation belongs to the default tenant.
      */
     public function test_get_tenant_id_returns_default_tenant_when_not_allocated(): void {
+        $this->require_tool_tenant();
         $this->resetAfterTest();
         $this->setAdminUser();
 
@@ -92,6 +96,7 @@ final class tenancy_test extends \advanced_testcase {
      * The default tenant id is the one of the Workplace default tenant.
      */
     public function test_get_default_tenant_id_matches_workplace(): void {
+        $this->require_tool_tenant();
         $this->resetAfterTest();
         $this->setAdminUser();
 

@@ -33,12 +33,15 @@ require_once($CFG->libdir . '/adminlib.php');
  * @coversNothing
  */
 final class admin_tree_test extends \advanced_testcase {
+    use \local_socialcert\tests\requires_workplace;
+
     /**
      * Creates a tenant and a tenant administrator, and logs in as that administrator.
      *
      * @return int Tenant id.
      */
     private function login_as_new_tenant_admin(): int {
+        $this->require_tool_tenant();
         $this->setAdminUser();
         \tool_tenant\tenancy::add_plugin_capabilities_to_tenant_admin_role('local_socialcert');
         $generator = $this->getDataGenerator()->get_plugin_generator('tool_tenant');

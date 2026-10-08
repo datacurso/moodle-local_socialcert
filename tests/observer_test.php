@@ -28,12 +28,15 @@ use local_socialcert\local\tenant_config;
  * @covers     \local_socialcert\observer
  */
 final class observer_test extends \advanced_testcase {
+    use \local_socialcert\tests\requires_workplace;
+
     /**
      * Deleting a tenant removes its settings, keeping other tenants intact.
      */
     public function test_tenant_deleted_removes_tenant_settings(): void {
         global $DB;
 
+        $this->require_tool_tenant();
         $this->resetAfterTest();
         $this->setAdminUser();
 
@@ -60,6 +63,7 @@ final class observer_test extends \advanced_testcase {
     public function test_tenant_deleted_ignores_invalid_tenant_id(): void {
         global $DB;
 
+        $this->require_tool_tenant();
         $this->resetAfterTest();
         $this->setAdminUser();
 

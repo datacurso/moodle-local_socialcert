@@ -26,13 +26,27 @@ namespace local_socialcert\local;
  * @covers     \local_socialcert\local\tenant_config
  */
 final class tenant_config_test extends \advanced_testcase {
+    use \local_socialcert\tests\requires_workplace;
+
     /**
      * Creates a tenant and returns its id.
      *
      * @return int
      */
     private function create_tenant(): int {
+        $this->require_tool_tenant();
         return (int) $this->getDataGenerator()->get_plugin_generator('tool_tenant')->create_tenant()->id;
+    }
+
+    /**
+     * Returns a new tenant, or the implicit tenant 0 on a site without tool_tenant.
+     *
+     * For the tests that only need one tenant, so they also run on plain Moodle.
+     *
+     * @return int
+     */
+    private function tenant_for_single_tenant_test(): int {
+        return class_exists('\tool_tenant\tenancy') ? $this->create_tenant() : 0;
     }
 
     /**
@@ -41,7 +55,7 @@ final class tenant_config_test extends \advanced_testcase {
     public function test_falls_back_to_default_ignoring_config_plugins(): void {
         $this->resetAfterTest();
         $this->setAdminUser();
-        $tenantid = $this->create_tenant();
+        $tenantid = $this->tenant_for_single_tenant_test();
 
         $this->assertSame('fallback', tenant_config::get('somesetting', 'fallback', $tenantid));
         $this->assertNull(tenant_config::get('somesetting', null, $tenantid));
@@ -93,7 +107,7 @@ final class tenant_config_test extends \advanced_testcase {
         global $DB;
         $this->resetAfterTest();
         $this->setAdminUser();
-        $tenantid = $this->create_tenant();
+        $tenantid = $this->tenant_for_single_tenant_test();
 
         tenant_config::set('somesetting', 'tenantvalue', $tenantid);
 
@@ -107,7 +121,7 @@ final class tenant_config_test extends \advanced_testcase {
     public function test_get_raw_returns_stored_value_only(): void {
         $this->resetAfterTest();
         $this->setAdminUser();
-        $tenantid = $this->create_tenant();
+        $tenantid = $this->tenant_for_single_tenant_test();
         set_config('somesetting', 'sitevalue', 'local_socialcert');
 
         $this->assertNull(tenant_config::get_raw('somesetting', $tenantid));
@@ -122,7 +136,7 @@ final class tenant_config_test extends \advanced_testcase {
     public function test_unset_restores_default(): void {
         $this->resetAfterTest();
         $this->setAdminUser();
-        $tenantid = $this->create_tenant();
+        $tenantid = $this->tenant_for_single_tenant_test();
         tenant_config::set('somesetting', 'tenantvalue', $tenantid);
 
         tenant_config::unset('somesetting', $tenantid);
@@ -160,7 +174,7 @@ final class tenant_config_test extends \advanced_testcase {
         global $DB;
         $this->resetAfterTest();
         $this->setAdminUser();
-        $tenantid = $this->create_tenant();
+        $tenantid = $this->tenant_for_single_tenant_test();
 
         tenant_config::set('somesetting', 'one', $tenantid);
         tenant_config::set('somesetting', 'two', $tenantid);

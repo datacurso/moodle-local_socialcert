@@ -30,6 +30,8 @@ use xmldb_table;
  * @coversNothing
  */
 final class upgrade_test extends \advanced_testcase {
+    use \local_socialcert\tests\requires_workplace;
+
     /**
      * The tenant configuration table exists with its fields and the (tenantid, name) unique key.
      */
@@ -52,6 +54,7 @@ final class upgrade_test extends \advanced_testcase {
      */
     public function test_tenant_admin_role_holds_plugin_capabilities_after_install(): void {
         global $DB;
+        $this->require_tool_tenant();
 
         $roleid = \tool_tenant\manager::get_tenant_admin_role();
         $allowed = $DB->get_fieldset_select(

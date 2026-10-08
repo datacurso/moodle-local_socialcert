@@ -26,6 +26,8 @@ namespace local_socialcert\output;
  * @covers     \local_socialcert\output\tenant_scope_notice
  */
 final class tenant_scope_notice_test extends \advanced_testcase {
+    use \local_socialcert\tests\requires_workplace;
+
     /**
      * Creates a tenant with the given name, allocates a new user to it and logs that user in.
      *
@@ -33,6 +35,7 @@ final class tenant_scope_notice_test extends \advanced_testcase {
      * @return int Tenant id.
      */
     private function login_into_new_tenant(string $name): int {
+        $this->require_tool_tenant();
         $this->setAdminUser();
         $generator = $this->getDataGenerator()->get_plugin_generator('tool_tenant');
         $tenantid = (int) $generator->create_tenant(['name' => $name])->id;

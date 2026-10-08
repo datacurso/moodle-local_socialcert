@@ -37,6 +37,7 @@ require_once(__DIR__ . '/fixtures/customcert_dependency_trait.php');
  * @covers      \local_socialcert\output\main_panel
  */
 final class tenant_settings_isolation_test extends \advanced_testcase {
+    use \local_socialcert\tests\requires_workplace;
     use customcert_dependency_trait;
 
     /**
@@ -45,6 +46,7 @@ final class tenant_settings_isolation_test extends \advanced_testcase {
      * @return \stdClass Object with cmid, the two tenant ids and the two students.
      */
     private function create_two_tenant_scenario(): \stdClass {
+        $this->require_tool_tenant();
         $this->require_customcert();
         $this->setAdminUser();
 

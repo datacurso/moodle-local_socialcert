@@ -42,6 +42,7 @@ require_once(__DIR__ . '/fixtures/customcert_dependency_trait.php');
  * @coversNothing
  */
 final class plugin_compliance_test extends \advanced_testcase {
+    use \local_socialcert\tests\requires_workplace;
     use customcert_dependency_trait;
 
     /** @var string Relative path of the plugin. */
@@ -306,6 +307,7 @@ final class plugin_compliance_test extends \advanced_testcase {
      * MDL-INT-001: The three settings persist in the store of the tenant, never in config_plugins.
      */
     public function test_tenant_settings_persist_in_the_tenant_store(): void {
+        $this->require_tool_tenant();
         $this->resetAfterTest();
         $this->setAdminUser();
 
