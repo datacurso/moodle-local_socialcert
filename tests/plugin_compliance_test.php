@@ -259,13 +259,19 @@ final class plugin_compliance_test extends \advanced_testcase {
         $page = $this->get_plugin_settings_page();
         $settings = $this->index_settings($page);
 
-        // The three tenant settings plus the read-only notice naming the tenant they apply to.
-        $this->assertCount(4, $settings, 'The plugin must expose exactly three settings and the tenant scope notice.');
-        $this->assertArrayHasKey('local_socialcert/tenantscopenotice', $settings);
-        $this->assertInstanceOf(
-            \local_socialcert\admin\setting_tenant_scope_notice::class,
-            $settings['local_socialcert/tenantscopenotice']
-        );
+        // The three tenant settings, plus the read-only notice naming the tenant they apply to when
+        // Moodle Workplace provides tenants.
+        if (tenancy::is_available()) {
+            $this->assertCount(4, $settings, 'The plugin must expose exactly three settings and the tenant scope notice.');
+            $this->assertArrayHasKey('local_socialcert/tenantscopenotice', $settings);
+            $this->assertInstanceOf(
+                \local_socialcert\admin\setting_tenant_scope_notice::class,
+                $settings['local_socialcert/tenantscopenotice']
+            );
+        } else {
+            $this->assertCount(3, $settings, 'Without tenants the plugin must expose exactly three settings.');
+            $this->assertArrayNotHasKey('local_socialcert/tenantscopenotice', $settings);
+        }
 
         $this->assertArrayHasKey('local_socialcert/organizationid', $settings);
         $organizationid = $settings['local_socialcert/organizationid'];

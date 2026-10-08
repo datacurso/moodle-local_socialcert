@@ -110,10 +110,12 @@ final class admin_tree_test extends \advanced_testcase {
         foreach ($page->settings as $setting) {
             $names[$setting->name] = $setting;
         }
-        $this->assertSame(
-            ['tenantscopenotice', 'organizationid', 'organizationname', 'enableai'],
-            array_keys($names)
-        );
+        // The scope notice only exists when there is a tenant to name (Moodle Workplace).
+        $expected = ['organizationid', 'organizationname', 'enableai'];
+        if (\local_socialcert\local\tenancy::is_available()) {
+            array_unshift($expected, 'tenantscopenotice');
+        }
+        $this->assertSame($expected, array_keys($names));
         $this->assertInstanceOf(\local_socialcert\admin\setting_tenant_scope_notice::class, $names['tenantscopenotice']);
         $this->assertInstanceOf(\local_socialcert\admin\setting_configtext::class, $names['organizationid']);
         $this->assertInstanceOf(\local_socialcert\admin\setting_configtext::class, $names['organizationname']);
