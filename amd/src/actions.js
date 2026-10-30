@@ -334,6 +334,12 @@ async function handleCopyHtml(_ev, el) {
     ? clone.innerHTML
     : (clone.innerText || clone.textContent || '');
 
+  // The Clipboard API is missing outside secure contexts, which is a failure the user must hear too.
+  if (!navigator.clipboard) {
+    announce(el.closest(PANEL_ROOT_SELECTOR), 'copyfailed');
+    return;
+  }
+
   navigator.clipboard.writeText(content)
     .then(() => {
 
@@ -350,7 +356,8 @@ async function handleCopyHtml(_ev, el) {
       return;
     })
     .catch(() => {
-      // Clipboard permission denied or unavailable: nothing to report to the user.
+      // Clipboard permission denied or unavailable: tell the user, so the click is not silently lost.
+      announce(el.closest(PANEL_ROOT_SELECTOR), 'copyfailed');
     });
 }
 
