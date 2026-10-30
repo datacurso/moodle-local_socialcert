@@ -1,3 +1,15 @@
+## [1.1.5] - 2026-10-30
+
+**Compatibility note:** This version is compatible from **Moodle 4.5** to **Moodle 5.3**.
+
+### 🔧 Changed
+
+- Extend the supported range to Moodle 5.3
+
+### 🐞 Fixed
+
+- Read the time spent in the course through `\mod_customcert\service\certificate_time_service` when it exists, instead of `certificate::get_course_time()`, deprecated by mod_customcert for Moodle 5.2 and later; older releases keep using the static method (#11)
+
 ## [1.1.4] - 2026-10-02
 
 **Compatibility note:** This version is compatible from **Moodle 4.5** to **Moodle 5.2**.
