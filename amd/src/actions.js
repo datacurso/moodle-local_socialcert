@@ -402,9 +402,11 @@ const CREDITS_ERROR_CODES = ['notenoughtokens'];
  * 'forbidden' (unknown rejection of the licence) and 'invalidlicensekey' (expired or invalid key)
  * join 'license_not_allowed' because their own messages talk about the licence and point at the
  * credits manager of the shop, which is exactly what the licence message of the panel says.
+ * 'licensekey_missing' (no key configured in the provider) is a licence problem as well, and the
+ * shop is where the key is obtained, so it gets the same message instead of the generic one.
  * @type {string[]}
  */
-const LICENSE_ERROR_CODES = ['license_not_allowed', 'forbidden', 'invalidlicensekey'];
+const LICENSE_ERROR_CODES = ['license_not_allowed', 'forbidden', 'invalidlicensekey', 'licensekey_missing'];
 
 /**
  * Maps an error reported by the backend to a plugin lang key.
