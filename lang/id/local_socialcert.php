@@ -39,6 +39,7 @@ $string['certificate_url'] = 'Tautan';
 $string['certificateimage'] = 'certificate.png';
 $string['copyarticlebuttontext'] = 'Salin artikel LinkedIn';
 $string['copyconfirmation'] = 'Disalin ✔';
+$string['copyfailed'] = 'Teks tidak dapat disalin: browser Anda memblokir akses ke papan klip. Pilih teks lalu salin secara manual.';
 $string['copytextlabel'] = 'Salin teks yang dibuat';
 $string['description'] = 'Memungkinkan pengguna untuk membagikan sertifikat mereka langsung di LinkedIn.';
 $string['enableai'] = 'Aktifkan AI untuk menyarankan teks unggahan';

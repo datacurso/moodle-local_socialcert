@@ -39,6 +39,7 @@ $string['certificate_url'] = 'Link';
 $string['certificateimage'] = 'certificate.png';
 $string['copyarticlebuttontext'] = 'LinkedIn-Beitrag kopieren';
 $string['copyconfirmation'] = 'Kopiert ✔';
+$string['copyfailed'] = 'Der Text konnte nicht kopiert werden: Dein Browser hat den Zugriff auf die Zwischenablage blockiert. Markiere den Text und kopiere ihn manuell.';
 $string['copytextlabel'] = 'Den erstellten Text kopieren';
 $string['description'] = 'Ermöglicht es dem Benutzer, sein Zertifikat direkt auf LinkedIn zu teilen.';
 $string['enableai'] = 'KI aktivieren, um vorgeschlagenen Beitragstext zu erzeugen';

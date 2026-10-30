@@ -39,6 +39,7 @@ $string['certificate_url'] = 'Ссылка';
 $string['certificateimage'] = 'certificate.png';
 $string['copyarticlebuttontext'] = 'Скопировать публикацию LinkedIn';
 $string['copyconfirmation'] = 'Скопировано ✔';
+$string['copyfailed'] = 'Не удалось скопировать текст: браузер заблокировал доступ к буферу обмена. Выделите текст и скопируйте его вручную.';
 $string['copytextlabel'] = 'Скопировать созданный текст';
 $string['description'] = 'Позволяет пользователю поделиться своим сертификатом напрямую в LinkedIn.';
 $string['enableai'] = 'Включить ИИ для предложения текста публикации';
