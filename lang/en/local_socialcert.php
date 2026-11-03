@@ -39,6 +39,7 @@ $string['certificate_url'] = 'Link';
 $string['certificateimage'] = 'certificate.png';
 $string['copyarticlebuttontext'] = 'Copy LinkedIn article';
 $string['copyconfirmation'] = 'Copied ✔';
+$string['copyfailed'] = 'The text could not be copied: your browser blocked access to the clipboard. Select the text and copy it manually.';
 $string['copytextlabel'] = 'Copy the generated text';
 $string['description'] = 'Allows the user to share their certificate directly on LinkedIn.';
 $string['enableai'] = 'Enable AI to suggest post text';
