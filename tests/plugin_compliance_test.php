@@ -87,6 +87,7 @@ final class plugin_compliance_test extends \advanced_testcase {
         'copyarticlebuttontext',
         'copytextlabel',
         'copyconfirmation',
+        'copyfailed',
         'generating',
         'errorcredits',
         'errorgeneric',

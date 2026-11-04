@@ -28,6 +28,7 @@ use cm_info;
 use core\context\module as context_module;
 use core\hook\output\before_footer_html_generation;
 use mod_customcert\certificate;
+use mod_customcert\service\certificate_time_service;
 
 /**
  * Defines plugin hook callbacks for local_socialcert.
@@ -151,6 +152,22 @@ class hook_callbacks {
 
         // The time spent in the course is only read when the activity really demands one, so the
         // log queries of get_course_time() are not paid for by every certificate of the site.
-        return certificate::get_course_time((int) $cm->course) < ((int) $customcert->requiredtime * MINSECS);
+        return self::get_course_time((int) $cm->course) < ((int) $customcert->requiredtime * MINSECS);
+    }
+
+    /**
+     * Time the current user has spent in the course, in seconds.
+     *
+     * mod_customcert deprecated certificate::get_course_time() in its Moodle 5.2 release in favour of
+     * certificate_time_service; older releases (Moodle 4.5) only have the static method.
+     *
+     * @param int $courseid Course id.
+     * @return int
+     */
+    private static function get_course_time(int $courseid): int {
+        if (class_exists(certificate_time_service::class)) {
+            return certificate_time_service::create()->get_course_time($courseid);
+        }
+        return certificate::get_course_time($courseid);
     }
 }
