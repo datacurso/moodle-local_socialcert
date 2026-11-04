@@ -1,4 +1,4 @@
-## [1.1.5] - 2026-10-30
+## [1.1.5] - 2026-11-04
 
 **Compatibility note:** This version is compatible from **Moodle 4.5** to **Moodle 5.3**.
 
@@ -9,6 +9,9 @@
 ### 🐞 Fixed
 
 - Read the time spent in the course through `\mod_customcert\service\certificate_time_service` when it exists, instead of `certificate::get_course_time()`, deprecated by mod_customcert for Moodle 5.2 and later; older releases keep using the static method (#11)
+- Tell the user in the panel live region when copying the generated text fails, instead of failing silently (#13)
+- Replace the "Get your certificate first" notice with the missing organization ID notice when the certificate is issued while the page is open and the LinkedIn organization ID is not configured (#14)
+- Show the license message with the link to the Datacurso shop when the AI provider reports a missing license key (`licensekey_missing`), instead of the generic error (#15)
 
 ## [1.1.4] - 2026-10-02
 
