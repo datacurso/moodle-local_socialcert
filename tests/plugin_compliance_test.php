@@ -248,7 +248,7 @@ final class plugin_compliance_test extends \advanced_testcase {
     }
 
     /**
-     * MDL-INT-001: The two documented settings exist with their documented defaults.
+     * MDL-INT-001: The four documented settings exist with their documented defaults.
      *
      * The former "Enable AI" setting ('enableai') moved to the Datacurso AI provider, so the plugin
      * settings page no longer declares it.
@@ -265,7 +265,7 @@ final class plugin_compliance_test extends \advanced_testcase {
         $page = $this->get_plugin_settings_page();
         $settings = $this->index_settings($page);
 
-        $this->assertCount(3, $settings, 'The plugin must expose exactly three global settings.');
+        $this->assertCount(4, $settings, 'The plugin must expose exactly four global settings.');
 
         $this->assertArrayHasKey('local_socialcert/organizationid', $settings);
         $organizationid = $settings['local_socialcert/organizationid'];
@@ -286,8 +286,13 @@ final class plugin_compliance_test extends \advanced_testcase {
 
         $this->assertArrayNotHasKey('local_socialcert/enableai', $settings, 'The provider keeps the AI switch.');
 
+        $this->assertArrayHasKey('local_socialcert/airatelimit', $settings);
+        $airatelimit = $settings['local_socialcert/airatelimit'];
+        $this->assertInstanceOf(\admin_setting_configtext::class, $airatelimit);
+        $this->assertEquals(10, $airatelimit->get_defaultsetting(), 'The AI limit per user must default to 10 per hour.');
+
         // Every setting has a help text and none hides another one.
-        foreach (['organizationid', 'organizationname', 'aiassistant_enabled'] as $name) {
+        foreach (['organizationid', 'organizationname', 'aiassistant_enabled', 'airatelimit'] as $name) {
             $this->assertTrue(
                 get_string_manager()->string_exists($name . '_desc', 'local_socialcert'),
                 "Missing help text for the '{$name}' setting."
