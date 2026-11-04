@@ -360,6 +360,8 @@ final class hook_callbacks_test extends \advanced_testcase {
 
         // The student has spent no time in the course, so view.php answers with the notice.
         $this->assertSame('', $this->run_footer_hook($course, $timed->cmid, 'mod-customcert-view'));
+        // Reading the course time must not go through the API mod_customcert deprecated in 5.2.
+        $this->assertDebuggingNotCalled();
 
         // The very same student and the very same activity do get the panel as soon as the activity
         // stops demanding a minimum time, which is what proves the notice is what keeps the panel

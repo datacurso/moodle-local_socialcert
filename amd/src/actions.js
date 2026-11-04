@@ -334,6 +334,12 @@ async function handleCopyHtml(_ev, el) {
     ? clone.innerHTML
     : (clone.innerText || clone.textContent || '');
 
+  // The Clipboard API is missing outside secure contexts, which is a failure the user must hear too.
+  if (!navigator.clipboard) {
+    announce(el.closest(PANEL_ROOT_SELECTOR), 'copyfailed');
+    return;
+  }
+
   navigator.clipboard.writeText(content)
     .then(() => {
 
@@ -350,7 +356,8 @@ async function handleCopyHtml(_ev, el) {
       return;
     })
     .catch(() => {
-      // Clipboard permission denied or unavailable: nothing to report to the user.
+      // Clipboard permission denied or unavailable: tell the user, so the click is not silently lost.
+      announce(el.closest(PANEL_ROOT_SELECTOR), 'copyfailed');
     });
 }
 
@@ -402,9 +409,11 @@ const CREDITS_ERROR_CODES = ['notenoughtokens'];
  * 'forbidden' (unknown rejection of the licence) and 'invalidlicensekey' (expired or invalid key)
  * join 'license_not_allowed' because their own messages talk about the licence and point at the
  * credits manager of the shop, which is exactly what the licence message of the panel says.
+ * 'licensekey_missing' (no key configured in the provider) is a licence problem as well, and the
+ * shop is where the key is obtained, so it gets the same message instead of the generic one.
  * @type {string[]}
  */
-const LICENSE_ERROR_CODES = ['license_not_allowed', 'forbidden', 'invalidlicensekey'];
+const LICENSE_ERROR_CODES = ['license_not_allowed', 'forbidden', 'invalidlicensekey', 'licensekey_missing'];
 
 /**
  * Maps an error reported by the backend to a plugin lang key.
@@ -1123,6 +1132,28 @@ function showVerifyWarning(root, message) {
 }
 
 /**
+ * Replaces the notice of the disabled panel with the one for a missing LinkedIn organization ID.
+ *
+ * It is the same lang string main_panel::export_for_template() picks once the issue exists, so the
+ * panel refreshed in the browser says exactly what a reload would say.
+ *
+ * @param {HTMLElement} root Panel root element.
+ * @returns {Promise<void>} Resolves once the notice has been replaced or discarded.
+ */
+async function showNoOrganizationNotice(root) {
+  const notice = root.querySelector('.lsc-error-message');
+  if (!notice) {
+    return;
+  }
+
+  try {
+    notice.textContent = await getString('certerrornoorg', 'local_socialcert');
+  } catch (e) {
+    // Keep the current notice when the string cannot be fetched.
+  }
+}
+
+/**
  * Re-reads the state of the panel and enables it once the certificate has been issued.
  *
  * mod_customcert only records the issue when the certificate is downloaded, and the panel was
@@ -1174,9 +1205,16 @@ async function refreshShareState(root, cmid) {
   // when the share action itself must stay disabled because no organization ID is configured.
   await renderAiCard(root, state);
 
-  // An empty share URL means the panel must stay disabled: either there is still no issue or the
-  // LinkedIn organization ID is not configured, and no share link may be invented in the browser.
-  if (state.hasissue !== true || !state.shareurl) {
+  // Without the issue the notice rendered by the server is still the right one.
+  if (state.hasissue !== true) {
+    return;
+  }
+
+  // An empty share URL with the issue recorded means the LinkedIn organization ID is not
+  // configured: the panel must stay disabled and no share link may be invented in the browser, but
+  // the notice still asks for the download, so it is switched to the one the server would render.
+  if (!state.shareurl) {
+    await showNoOrganizationNotice(root);
     return;
   }
 
