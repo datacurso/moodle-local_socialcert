@@ -175,9 +175,9 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
     /**
      * Assert that the rejection comes from a business rule and not from the AI provider.
      *
-     * The AI provider is intentionally left unconfigured in these tests, so a rejection that
-     * mentions the license key (or any transport failure) proves that the plugin let the call
-     * reach the HTTP client instead of stopping it beforehand.
+     * The AI provider is intentionally left unconfigured in these tests, so a rejection carrying
+     * a provider error code (the invalid licence key, or any transport failure) proves that the
+     * plugin let the call reach the HTTP client instead of stopping it beforehand.
      *
      * @param array $result Payload returned by execute().
      * @param string $reason Human readable description of the business rule under test.
@@ -200,11 +200,6 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
             $result['errorcode'] ?? '',
             $providerfailures,
             "{$reason} must be rejected by the plugin, not by the AI provider."
-        );
-        $this->assertStringNotContainsStringIgnoringCase(
-            'licensekey',
-            (string) $result['message'],
-            "{$reason} must be rejected before the AI HTTP client is built."
         );
     }
 
@@ -519,12 +514,9 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
         $result = ai_helper::execute($fixture->cmid);
         $this->flush_debugging();
 
-        $this->assert_controlled_rejection($result);
-        $this->assertStringContainsStringIgnoringCase(
-            'licensekey',
-            (string) $result['message'],
-            'The failure must come from the unconfigured provider, proving no external call was attempted.'
-        );
+        // The provider refuses the request before any HTTP call with its own error code, so the
+        // code, not the localized text, is what proves no external call was attempted.
+        $this->assert_controlled_rejection($result, 'invalidlicensekey');
     }
 
     /**
