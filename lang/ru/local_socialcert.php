@@ -78,6 +78,7 @@ $string['privacy:metadata:aiservice:userid'] = 'Числовой идентиф�
 $string['privacy:metadata:linkedin'] = 'Данные удостоверения, передаваемые в LinkedIn, когда пользователь публикует сертификат в своём профиле.';
 $string['privacy:metadata:linkedin:certificationname'] = 'Название сертификации, добавляемой в профиль LinkedIn.';
 $string['privacy:metadata:linkedin:credentialcode'] = 'Код удостоверения выданного сертификата.';
+$string['privacy:metadata:linkedin:expirationdate'] = 'Месяц и год окончания срока действия сертификата, если он указан.';
 $string['privacy:metadata:linkedin:issuedate'] = 'Месяц и год выдачи сертификата.';
 $string['privacy:metadata:linkedin:organizationid'] = 'Числовой идентификатор организации LinkedIn, указанный администратором сайта.';
 $string['privacy:metadata:linkedin:verificationlink'] = 'Публичная ссылка для проверки сертификата.';

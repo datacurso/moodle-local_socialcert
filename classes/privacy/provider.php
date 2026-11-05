@@ -73,6 +73,7 @@ class provider implements
                 'certificationname' => 'privacy:metadata:linkedin:certificationname',
                 'organizationid' => 'privacy:metadata:linkedin:organizationid',
                 'issuedate' => 'privacy:metadata:linkedin:issuedate',
+                'expirationdate' => 'privacy:metadata:linkedin:expirationdate',
                 'credentialcode' => 'privacy:metadata:linkedin:credentialcode',
                 'verificationlink' => 'privacy:metadata:linkedin:verificationlink',
             ],

@@ -25,8 +25,7 @@ use core_privacy\manager;
 /**
  * Tests for the plugin privacy declaration.
  *
- * Both cases in this file assert the
- * CORRECT expected behaviour: classes/privacy/provider.php used to declare the namespace of a
+ * The cases in this file assert the CORRECT expected behaviour: classes/privacy/provider.php used to declare the namespace of a
  * different plugin (local_whatsapp), so \local_socialcert\privacy\provider could not be autoloaded
  * and the platform saw the plugin as having no privacy declaration at all. The provider now lives
  * in the plugin namespace and declares both the null provider (it stores no personal data locally)
@@ -41,6 +40,21 @@ use core_privacy\manager;
 final class privacy_provider_test extends \advanced_testcase {
     /** @var string Fully qualified name of the expected privacy provider. */
     private const PROVIDERCLASS = 'local_socialcert\\privacy\\provider';
+
+    /** @var string[] Parameters of the LinkedIn link that instruct LinkedIn and carry no user datum. */
+    private const LINKEDIN_INSTRUCTIONS = ['startTask'];
+
+    /** @var string[] Privacy field declared for each parameter of the LinkedIn link that carries a datum. */
+    private const LINKEDIN_PARAM_FIELDS = [
+        'name' => 'certificationname',
+        'organizationId' => 'organizationid',
+        'issueYear' => 'issuedate',
+        'issueMonth' => 'issuedate',
+        'certUrl' => 'verificationlink',
+        'certId' => 'credentialcode',
+        'expirationYear' => 'expirationdate',
+        'expirationMonth' => 'expirationdate',
+    ];
 
     /**
      * MDL-INT-011: The plugin ships a privacy provider under its own namespace.
@@ -132,6 +146,74 @@ final class privacy_provider_test extends \advanced_testcase {
             $linkedinkeys,
             'An external location must be declared for LinkedIn with the credential fields.'
         );
+    }
+
+    /**
+     * Share links built with and without an expiration date.
+     *
+     * @return array[] Expiry timestamp passed to the builder, or null for none.
+     */
+    public static function linkedin_share_link_provider(): array {
+        return [
+            'without expiration' => [null],
+            'with expiration' => [gmmktime(12, 0, 0, 11, 30, 2027)],
+        ];
+    }
+
+    /**
+     * SOCIALCERT-PRIV-001: every datum the LinkedIn share link carries is declared in the metadata.
+     *
+     * The link is built by the real builder and each of its parameters is matched against the
+     * declared privacy fields of the LinkedIn location, so a parameter added to the link without
+     * being declared, or without being classified here, makes this test fail.
+     *
+     * @dataProvider linkedin_share_link_provider
+     * @param int|null $expiry Expiry timestamp passed to the builder.
+     */
+    public function test_every_datum_of_the_linkedin_link_is_declared(?int $expiry): void {
+        $this->resetAfterTest();
+        $this->setTimezone('UTC', 'UTC');
+        set_config('organizationid', '54321', 'local_socialcert');
+
+        $url = \local_socialcert\output\linkedin_helper::build_linkedin_url(
+            'AI Fundamentals',
+            gmmktime(12, 0, 0, 6, 15, 2025),
+            'https://example.com/mod/customcert/verify_certificate.php?code=ABC1234567',
+            'ABC1234567',
+            $expiry
+        );
+        $this->assertNotNull($url, 'The share link must be built when the organization is configured.');
+
+        parse_str((string) parse_url($url, PHP_URL_QUERY), $params);
+        if ($expiry !== null) {
+            $this->assertArrayHasKey('expirationYear', $params, 'The case with expiration must exercise it.');
+        }
+
+        $declared = $this->get_privacy_field_keys(
+            $this->get_external_locations($this->get_metadata_collection()),
+            'linkedin'
+        );
+
+        foreach (array_keys($params) as $param) {
+            if (in_array($param, self::LINKEDIN_INSTRUCTIONS, true)) {
+                continue;
+            }
+            $this->assertArrayHasKey(
+                $param,
+                self::LINKEDIN_PARAM_FIELDS,
+                "The LinkedIn parameter '{$param}' is not classified: declare it in the privacy provider and map it here."
+            );
+            $field = self::LINKEDIN_PARAM_FIELDS[$param];
+            $this->assertContains(
+                $field,
+                $declared,
+                "The LinkedIn parameter '{$param}' is sent but its privacy field '{$field}' is not declared."
+            );
+            $this->assertTrue(
+                get_string_manager()->string_exists("privacy:metadata:linkedin:{$field}", 'local_socialcert'),
+                "The privacy field '{$field}' must have its language string."
+            );
+        }
     }
 
     /**

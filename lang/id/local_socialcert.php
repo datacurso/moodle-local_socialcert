@@ -78,6 +78,7 @@ $string['privacy:metadata:aiservice:userid'] = 'Pengenal numerik pengguna yang m
 $string['privacy:metadata:linkedin'] = 'Data kredensial yang dikirim ke LinkedIn ketika pengguna membagikan sertifikat di profilnya.';
 $string['privacy:metadata:linkedin:certificationname'] = 'Nama sertifikasi yang ditambahkan ke profil LinkedIn.';
 $string['privacy:metadata:linkedin:credentialcode'] = 'Kode kredensial dari penerbitan sertifikat.';
+$string['privacy:metadata:linkedin:expirationdate'] = 'Bulan dan tahun sertifikat kedaluwarsa, jika sertifikat memiliki tanggal kedaluwarsa.';
 $string['privacy:metadata:linkedin:issuedate'] = 'Bulan dan tahun penerbitan sertifikat.';
 $string['privacy:metadata:linkedin:organizationid'] = 'Pengenal numerik organisasi LinkedIn yang dikonfigurasi oleh administrator situs.';
 $string['privacy:metadata:linkedin:verificationlink'] = 'Tautan verifikasi publik dari sertifikat.';

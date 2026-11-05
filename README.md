@@ -128,7 +128,7 @@ The panel is shown only to users who can receive the certificate of the activity
 
    ![Share on LinkedIn button](./_docs/images/local_socialcert_linkedin_button.png)
 
-2. A LinkedIn window opens with the certificate details **already filled in** (title, issuing organization, issue date, credential ID and verification URL). Review and click **Save**.
+2. A LinkedIn window opens with the certificate details **already filled in** (title, issuing organization, issue date, credential ID, verification URL and, when the certificate expires, the expiration date). Review and click **Save**.
 
    ![LinkedIn add-to-profile dialog prefilled](./_docs/images/local_socialcert_linkedin_form.png)
 

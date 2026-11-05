@@ -78,6 +78,7 @@ $string['privacy:metadata:aiservice:userid'] = 'The numeric identifier of the us
 $string['privacy:metadata:linkedin'] = 'Credential data sent to LinkedIn when the user shares the certificate on their profile.';
 $string['privacy:metadata:linkedin:certificationname'] = 'The name of the certification added to the LinkedIn profile.';
 $string['privacy:metadata:linkedin:credentialcode'] = 'The credential code of the certificate issue.';
+$string['privacy:metadata:linkedin:expirationdate'] = 'The month and year the certificate expires, when it has an expiration date.';
 $string['privacy:metadata:linkedin:issuedate'] = 'The month and year the certificate was issued.';
 $string['privacy:metadata:linkedin:organizationid'] = 'The numeric LinkedIn organization identifier configured by the site administrator.';
 $string['privacy:metadata:linkedin:verificationlink'] = 'The public verification link of the certificate.';

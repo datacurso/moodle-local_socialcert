@@ -78,6 +78,7 @@ $string['privacy:metadata:aiservice:userid'] = 'L’identifiant numérique de l�
 $string['privacy:metadata:linkedin'] = 'Données de la certification envoyées à LinkedIn lorsque l’utilisateur partage le certificat sur son profil.';
 $string['privacy:metadata:linkedin:certificationname'] = 'Le nom de la certification ajoutée au profil LinkedIn.';
 $string['privacy:metadata:linkedin:credentialcode'] = 'Le code de la certification délivrée.';
+$string['privacy:metadata:linkedin:expirationdate'] = 'Le mois et l’année d’expiration du certificat, lorsqu’il a une date d’expiration.';
 $string['privacy:metadata:linkedin:issuedate'] = 'Le mois et l’année de délivrance du certificat.';
 $string['privacy:metadata:linkedin:organizationid'] = 'L’identifiant numérique de l’organisation LinkedIn configuré par l’administrateur du site.';
 $string['privacy:metadata:linkedin:verificationlink'] = 'Le lien public de vérification du certificat.';

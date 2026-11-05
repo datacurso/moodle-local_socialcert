@@ -78,6 +78,7 @@ $string['privacy:metadata:aiservice:userid'] = 'Die numerische Kennung des Benut
 $string['privacy:metadata:linkedin'] = 'Nachweisdaten, die an LinkedIn gesendet werden, wenn der Benutzer das Zertifikat in seinem Profil teilt.';
 $string['privacy:metadata:linkedin:certificationname'] = 'Der Name der Zertifizierung, die dem LinkedIn-Profil hinzugefügt wird.';
 $string['privacy:metadata:linkedin:credentialcode'] = 'Der Nachweiscode der Zertifikatsausstellung.';
+$string['privacy:metadata:linkedin:expirationdate'] = 'Monat und Jahr, in dem das Zertifikat abläuft, sofern es ein Ablaufdatum hat.';
 $string['privacy:metadata:linkedin:issuedate'] = 'Monat und Jahr der Ausstellung des Zertifikats.';
 $string['privacy:metadata:linkedin:organizationid'] = 'Die numerische LinkedIn-Organisations-ID, die von der Administration der Website konfiguriert wurde.';
 $string['privacy:metadata:linkedin:verificationlink'] = 'Der öffentliche Verifizierungslink des Zertifikats.';
