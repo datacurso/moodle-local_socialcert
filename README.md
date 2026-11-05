@@ -176,6 +176,12 @@ Every share and every AI generation is recorded as an event of the plugin, visib
 
 ---
 
+## Releasing
+
+Maintainers publish new versions by hand, in GitHub and in the Moodle plugins directory. The steps are in [RELEASING.md](RELEASING.md).
+
+---
+
 ## License
 
 2025 Data Curso LLC <https://datacurso.com>

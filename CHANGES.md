@@ -14,7 +14,7 @@ This version closes the three findings of the Mindfree security report MFR-ZN624
 
 ### 🔒 Security
 
-- SOCIALCERT-SEC-001: remove the GitHub Actions workflow `moodle-release.yml`, which inserted the manually typed tag name into a shell step that had the moodle.org publishing token at hand. A guard test now fails if any workflow directly interpolates untrusted input into a `run` or `script` step, or exposes that token again; its docblock lists the indirect forms it does not cover (`tests/ci/workflow_security_test.php`). Publishing to the moodle.org directory becomes a manual step
+- SOCIALCERT-SEC-001: remove the GitHub Actions workflow `moodle-release.yml`, which inserted the manually typed tag name into a shell step that had the moodle.org publishing token at hand. A guard test now fails if any workflow directly interpolates untrusted input into a `run` or `script` step, or exposes that token again; its docblock lists the indirect forms it does not cover (`tests/ci/workflow_security_test.php`). Publishing to the moodle.org directory becomes a manual step, described in `RELEASING.md`
 - SOCIALCERT-SEC-002: the web service `local_socialcert_get_ai_response` spends one unit of a per user hourly quota, taken from the Moodle AI rate limiter under a per user lock, after every business check passes and before the provider is contacted. Calls over the limit are refused with `error_ratelimit_exceeded` and a message that names the limit; a call that cannot take the lock is refused with `error_ratelimit_busy` without spending the quota, which the assistant card shows as its generic "try again later" message (`tests/external_ai_helper_ratelimit_test.php`)
 
 ### 🐞 Fixed
