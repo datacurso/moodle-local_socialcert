@@ -27,6 +27,14 @@ namespace local_socialcert\fixtures;
 
 use aiprovider_datacurso\httpclient\ai_services_api;
 
+defined('MOODLE_INTERNAL') || die();
+
+// The parent class lives in aiprovider_datacurso. Without that plugin the class is left undeclared, so
+// the tests that need it skip themselves instead of the whole suite failing to load.
+if (!class_exists(ai_services_api::class)) {
+    return;
+}
+
 /**
  * AI services client that answers a fixed reply instead of contacting the service.
  *

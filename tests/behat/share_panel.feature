@@ -25,9 +25,9 @@ Feature: Share an issued certificate on LinkedIn from the certificate activity p
       | activity   | name               | intro                    | course | idnumber |
       | customcert | Course certificate | Course certificate intro | C1     | cert1    |
     And the following config values are set as admin:
-      | organizationid   | 98765     | local_socialcert |
-      | organizationname | Buen Data | local_socialcert |
-      | enableai         | 1         | local_socialcert |
+      | organizationid                  | 98765     | local_socialcert     |
+      | organizationname                | Buen Data | local_socialcert     |
+      | plugin_enabled_local_socialcert | 1         | aiprovider_datacurso |
 
   # The LinkedIn form itself is never visited: linkedin.com is out of the test boundary.
   # Instead the anchor is inspected, which is what the plugin is responsible for building.

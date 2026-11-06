@@ -21,6 +21,7 @@ use local_socialcert\event\ai_text_generated;
 use local_socialcert\event\certificate_shared;
 use local_socialcert\external\log_share;
 use local_socialcert\fixtures\customcert_dependency_trait;
+use local_socialcert\fixtures\provider_dependency_trait;
 use local_socialcert\output\main_panel;
 use mod_customcert\certificate;
 
@@ -29,6 +30,7 @@ defined('MOODLE_INTERNAL') || die();
 global $CFG;
 require_once($CFG->libdir . '/adminlib.php');
 require_once(__DIR__ . '/fixtures/customcert_dependency_trait.php');
+require_once(__DIR__ . '/fixtures/provider_dependency_trait.php');
 
 /**
  * Plugin level compliance tests: global settings, language packs, events and capabilities.
@@ -41,6 +43,7 @@ require_once(__DIR__ . '/fixtures/customcert_dependency_trait.php');
  */
 final class plugin_compliance_test extends \advanced_testcase {
     use customcert_dependency_trait;
+    use provider_dependency_trait;
 
     /** @var string Relative path of the plugin. */
     private const PLUGINPATH = '/local/socialcert';
@@ -245,10 +248,15 @@ final class plugin_compliance_test extends \advanced_testcase {
     }
 
     /**
-     * MDL-INT-001: The three documented settings exist with their documented defaults.
+     * MDL-INT-001: The two documented settings exist with their documented defaults.
+     *
+     * The former "Enable AI" setting ('enableai') moved to the Datacurso AI provider, so the plugin
+     * settings page no longer declares it.
      *
      * Step 4 of the case (the AI card disappearing from the panel while the LinkedIn button stays
      * available) is a rendering concern and is covered by Behat, not here.
+     *
+     * @return void
      */
     public function test_global_settings_declare_the_documented_defaults(): void {
         $this->resetAfterTest();
@@ -269,13 +277,17 @@ final class plugin_compliance_test extends \advanced_testcase {
         $this->assertInstanceOf(\admin_setting_configtext::class, $organizationname);
         $this->assertSame('', $organizationname->get_defaultsetting());
 
-        $this->assertArrayHasKey('local_socialcert/enableai', $settings);
-        $enableai = $settings['local_socialcert/enableai'];
-        $this->assertInstanceOf(\admin_setting_configcheckbox::class, $enableai);
-        $this->assertEquals(1, $enableai->get_defaultsetting(), 'AI must be enabled out of the box.');
+        // The switch of the AI assistant only hides the AI card; it is enabled by default. Its name is
+        // not the former 'enableai', which the provider reads as the legacy state of the whole plugin.
+        $this->assertArrayHasKey('local_socialcert/aiassistant_enabled', $settings);
+        $aiassistant = $settings['local_socialcert/aiassistant_enabled'];
+        $this->assertInstanceOf(\admin_setting_configcheckbox::class, $aiassistant);
+        $this->assertSame('1', (string) $aiassistant->get_defaultsetting());
+
+        $this->assertArrayNotHasKey('local_socialcert/enableai', $settings, 'The provider keeps the AI switch.');
 
         // Every setting has a help text and none hides another one.
-        foreach (['organizationid', 'organizationname', 'enableai'] as $name) {
+        foreach (['organizationid', 'organizationname', 'aiassistant_enabled'] as $name) {
             $this->assertTrue(
                 get_string_manager()->string_exists($name . '_desc', 'local_socialcert'),
                 "Missing help text for the '{$name}' setting."
@@ -296,18 +308,20 @@ final class plugin_compliance_test extends \advanced_testcase {
     }
 
     /**
-     * MDL-INT-001: The three settings persist in the plugin configuration.
+     * MDL-INT-001: The two settings persist in the plugin configuration.
+     *
+     * The "Enable AI" switch is no longer a setting of the plugin: the Datacurso AI provider keeps it.
+     *
+     * @return void
      */
     public function test_global_settings_persist_their_values(): void {
         $this->resetAfterTest();
 
         set_config('organizationid', '1234567', 'local_socialcert');
         set_config('organizationname', 'Datacurso', 'local_socialcert');
-        set_config('enableai', 0, 'local_socialcert');
 
         $this->assertSame('1234567', get_config('local_socialcert', 'organizationid'));
         $this->assertSame('Datacurso', get_config('local_socialcert', 'organizationname'));
-        $this->assertSame('0', get_config('local_socialcert', 'enableai'));
     }
 
     /**
@@ -611,10 +625,11 @@ final class plugin_compliance_test extends \advanced_testcase {
      * here is the contract both event classes have to honour to be usable in the log reports.
      */
     public function test_user_actions_are_logged_as_events(): void {
+        $this->require_ai_provider();
         $this->resetAfterTest();
 
         set_config('organizationid', '12345', 'local_socialcert');
-        set_config('enableai', 1, 'local_socialcert');
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
 
         $scenario = $this->create_certificate_scenario();
         $this->setUser($scenario->student);
@@ -721,7 +736,7 @@ final class plugin_compliance_test extends \advanced_testcase {
         $this->resetAfterTest();
 
         set_config('organizationid', '12345', 'local_socialcert');
-        set_config('enableai', 1, 'local_socialcert');
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
 
         $scenario = $this->create_certificate_scenario();
         $studentroleid = (int) $DB->get_field('role', 'id', ['shortname' => 'student'], MUST_EXIST);

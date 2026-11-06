@@ -32,9 +32,9 @@ Feature: AI assistant card on the certificate share panel
       | activity   | name               | intro                    | course | idnumber | deliveryoption |
       | customcert | Course certificate | Course certificate intro | C1     | cert1    | D              |
     And the following config values are set as admin:
-      | organizationid   | 98765     | local_socialcert |
-      | organizationname | Buen Data | local_socialcert |
-      | enableai         | 1         | local_socialcert |
+      | organizationid                  | 98765     | local_socialcert     |
+      | organizationname                | Buen Data | local_socialcert     |
+      | plugin_enabled_local_socialcert | 1         | aiprovider_datacurso |
 
   # Visual layer of MDL-INT-001 step 4. The certificate is issued first on purpose: the assistant is
   # only available to a user with an issued certificate, which MDL-E2E-004 covers on the service
@@ -51,20 +51,30 @@ Feature: AI assistant card on the certificate share panel
     And "a#btn-normal" "css_element" should exist
 
   @MDL-INT-001
-  Scenario: Disabling AI removes the assistant card and keeps the share button available
+  Scenario: Disabling the AI assistant setting hides the AI card and keeps the share option
     Given the following config values are set as admin:
-      | enableai | 0 | local_socialcert |
+      | aiassistant_enabled | 0 | local_socialcert |
+    When I am on the "Course certificate" "customcert activity" page logged in as "student1"
+    And I press "View certificate"
+    And I am on the "Course certificate" "customcert activity" page
+    Then "div.bd-post[data-ai-composer]" "css_element" should not exist
+    And "button#btn-ai" "css_element" should not exist
+    And I should not see "Create a professional message for your LinkedIn post in one click"
+    And "a#btn-normal" "css_element" should exist
+    And I should see "Share your achievement on LinkedIn"
+
+  @MDL-INT-001
+  Scenario: Disabling the plugin in the provider removes the whole share panel
+    Given the following config values are set as admin:
+      | plugin_enabled_local_socialcert | 0 | aiprovider_datacurso |
     When I am on the "Course certificate" "customcert activity" page logged in as "student1"
     And I press "View certificate"
     And I am on the "Course certificate" "customcert activity" page
     Then "div.lsc-response-wrap" "css_element" should not exist
     And "button#btn-ai" "css_element" should not exist
     And I should not see "Create a professional message for your LinkedIn post in one click"
-    And "a#btn-normal" "css_element" should exist
-    And "a#btn-normal.disabled" "css_element" should not exist
-    And I should see "Share your achievement on LinkedIn"
-    And I should see "Share on LinkedIn"
-    And the "href" attribute of "a#btn-normal" "css_element" should contain "https://www.linkedin.com/profile/add"
+    And "a#btn-normal" "css_element" should not exist
+    And I should not see "Share your achievement on LinkedIn"
 
   # Steps 1 and 2 of MDL-E2E-006 that need no browser: the accessible names of the assistant
   # controls and the label of its region are rendered by the server from language strings, so they

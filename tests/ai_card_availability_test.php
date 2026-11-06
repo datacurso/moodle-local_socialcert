@@ -64,7 +64,7 @@ final class ai_card_availability_test extends \advanced_testcase {
         $this->resetAfterTest();
 
         set_config('organizationid', '12345', 'local_socialcert');
-        set_config('enableai', 1, 'local_socialcert');
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
 
         $scenario = $this->create_certificate_scenario();
         $this->setUser($scenario->student);
@@ -88,7 +88,7 @@ final class ai_card_availability_test extends \advanced_testcase {
     public function test_no_generation_context_is_exported_without_an_issued_certificate(): void {
         $this->resetAfterTest();
 
-        set_config('enableai', 1, 'local_socialcert');
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
 
         $scenario = $this->create_certificate_scenario();
         $this->setUser($scenario->student);
@@ -101,29 +101,6 @@ final class ai_card_availability_test extends \advanced_testcase {
     }
 
     /**
-     * MDL-E2E-004: with the AI disabled globally the assistant is never available, not even for a
-     * user who already holds the certificate.
-     */
-    public function test_ai_assistant_is_not_available_when_the_ai_is_disabled_globally(): void {
-        $this->resetAfterTest();
-
-        set_config('organizationid', '12345', 'local_socialcert');
-        set_config('enableai', 0, 'local_socialcert');
-
-        $scenario = $this->create_certificate_scenario();
-        $this->setUser($scenario->student);
-        certificate::issue_certificate($scenario->customcert->id, $scenario->student->id);
-
-        $data = $this->export_panel($scenario->customcert->cmid);
-
-        $this->assertFalse($data['issued']);
-        $this->assertFalse(
-            $data['enableai'],
-            'The AI assistant must stay unavailable while the AI is disabled globally.'
-        );
-    }
-
-    /**
      * MDL-E2E-004: with the AI enabled and the certificate already issued the assistant is
      * available and receives a non empty certificate name.
      */
@@ -131,7 +108,7 @@ final class ai_card_availability_test extends \advanced_testcase {
         $this->resetAfterTest();
 
         set_config('organizationid', '12345', 'local_socialcert');
-        set_config('enableai', 1, 'local_socialcert');
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
 
         $scenario = $this->create_certificate_scenario();
         $this->setUser($scenario->student);
@@ -159,7 +136,7 @@ final class ai_card_availability_test extends \advanced_testcase {
         $this->resetAfterTest();
 
         set_config('organizationid', '12345', 'local_socialcert');
-        set_config('enableai', 1, 'local_socialcert');
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
 
         $scenario = $this->create_certificate_scenario();
         $this->setUser($scenario->student);
@@ -187,7 +164,7 @@ final class ai_card_availability_test extends \advanced_testcase {
         $this->resetAfterTest();
 
         set_config('organizationid', '12345', 'local_socialcert');
-        set_config('enableai', 1, 'local_socialcert');
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
 
         $scenario = $this->create_certificate_scenario();
         $this->setUser($scenario->student);
@@ -209,6 +186,75 @@ final class ai_card_availability_test extends \advanced_testcase {
         $this->assertSame($aicard['certname'], $data['certname']);
         $this->assertSame($aicard['course'], $data['course']);
         $this->assertSame($aicard['author_name'], $data['author_name']);
+    }
+
+    /**
+     * MDL-INT-001: turning the AI assistant setting off hides the AI card but keeps the share option.
+     *
+     * The local_socialcert/aiassistant_enabled setting only switches the assistant off; the rest of
+     * the panel (the LinkedIn share button) stays available to the user with an issued certificate.
+     */
+    public function test_ai_card_is_hidden_and_share_option_kept_when_the_assistant_setting_is_off(): void {
+        global $OUTPUT, $USER;
+
+        $this->resetAfterTest();
+
+        set_config('organizationid', '12345', 'local_socialcert');
+        set_config('aiassistant_enabled', 0, 'local_socialcert');
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
+
+        $scenario = $this->create_certificate_scenario();
+        $this->setUser($scenario->student);
+        certificate::issue_certificate($scenario->customcert->id, $scenario->student->id);
+
+        $cmid = (int) $scenario->customcert->cmid;
+        $state = main_panel::get_share_state($cmid, (int) $USER->id);
+        $this->assertTrue($state['hasissue']);
+        $this->assertFalse($state['enableai'], 'The assistant must be unavailable while its setting is off.');
+
+        $data = $this->export_panel($cmid);
+        $this->assertFalse($data['enableai']);
+        $this->assertNotNull($data['shareurl'], 'The share option must stay available.');
+
+        $html = $OUTPUT->render_from_template('local_socialcert/main', $data);
+        $this->assertStringNotContainsString('data-ai-composer', $html, 'The AI card must not be rendered.');
+        $this->assertStringNotContainsString(get_string('ai_actioncall', 'local_socialcert'), $html);
+        $this->assertStringContainsString('data-action="open-link"', $html, 'The share option must be rendered.');
+        $this->assertStringContainsString('https://www.linkedin.com/profile/add?', $html);
+    }
+
+    /**
+     * MDL-INT-001: the AI card is shown when the assistant setting is on or was never stored.
+     *
+     * A site that never saved the setting keeps the assistant, so the default behaviour is unchanged.
+     */
+    public function test_ai_card_is_shown_when_the_assistant_setting_is_on_or_unset(): void {
+        global $OUTPUT;
+
+        $this->resetAfterTest();
+
+        set_config('organizationid', '12345', 'local_socialcert');
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
+
+        $scenario = $this->create_certificate_scenario();
+        $this->setUser($scenario->student);
+        certificate::issue_certificate($scenario->customcert->id, $scenario->student->id);
+        $cmid = (int) $scenario->customcert->cmid;
+
+        foreach (['on' => 1, 'unset' => null] as $label => $value) {
+            if ($value === null) {
+                unset_config('aiassistant_enabled', 'local_socialcert');
+            } else {
+                set_config('aiassistant_enabled', $value, 'local_socialcert');
+            }
+
+            $data = $this->export_panel($cmid);
+            $this->assertTrue($data['enableai'], "The assistant must be available with the setting {$label}.");
+
+            $html = $OUTPUT->render_from_template('local_socialcert/main', $data);
+            $this->assertStringContainsString('data-ai-composer', $html, "The AI card must be rendered ({$label}).");
+            $this->assertStringContainsString(get_string('ai_actioncall', 'local_socialcert'), $html);
+        }
     }
 
     /**
