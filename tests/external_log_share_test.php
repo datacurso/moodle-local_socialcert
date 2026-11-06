@@ -172,6 +172,29 @@ final class external_log_share_test extends \externallib_advanced_testcase {
     }
 
     /**
+     * MDL-INT-014: Nothing is recorded while the plugin is disabled in the Datacurso AI provider.
+     */
+    public function test_share_is_rejected_when_the_plugin_is_disabled_in_the_provider(): void {
+        $this->resetAfterTest();
+
+        set_config('organizationid', '98765', 'local_socialcert');
+        \aiprovider_datacurso\local\plugin_settings::set_enabled('local_socialcert', false);
+
+        $fixture = $this->create_certificate_fixture();
+        certificate::issue_certificate($fixture->customcert->id, $fixture->student->id);
+        $this->setUser($fixture->student);
+
+        $sink = $this->redirectEvents();
+        $rejection = $this->capture_rejection($fixture->cmid);
+        $events = $sink->get_events();
+        $sink->close();
+
+        $this->assertSame('plugindisabled', $rejection->errorcode);
+        $this->assertSame('aiprovider_datacurso', $rejection->module);
+        $this->assertSame([], $events, 'A disabled plugin must record no share.');
+    }
+
+    /**
      * MDL-INT-014: Nothing is recorded while the certificate has not been issued.
      */
     public function test_share_without_an_issued_certificate_is_rejected(): void {

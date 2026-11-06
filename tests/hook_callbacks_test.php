@@ -57,7 +57,7 @@ final class hook_callbacks_test extends \advanced_testcase {
         $this->resetAfterTest();
 
         set_config('organizationid', '12345', 'local_socialcert');
-        set_config('enableai', 1, 'local_socialcert');
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
 
         $generator = $this->getDataGenerator();
         $course = $generator->create_course();
@@ -73,6 +73,33 @@ final class hook_callbacks_test extends \advanced_testcase {
 
         $this->assertStringContainsString('local-socialcert', $output);
         $this->assertStringContainsString('data-cmid="' . $customcert->cmid . '"', $output);
+    }
+
+    /**
+     * MDL-INT-002: disabling the plugin in the Datacurso AI provider disables the whole panel, so
+     * not even a student who already holds the certificate gets the share button or the assistant.
+     */
+    public function test_panel_is_not_injected_when_the_plugin_is_disabled_in_the_provider(): void {
+        $this->require_customcert();
+        $this->resetAfterTest();
+
+        set_config('organizationid', '12345', 'local_socialcert');
+        \aiprovider_datacurso\local\plugin_settings::set_enabled('local_socialcert', false);
+
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $customcert = $generator->create_module('customcert', [
+            'course' => $course->id,
+            'name'   => 'AI Fundamentals',
+        ]);
+        $student = $generator->create_user();
+        $generator->enrol_user($student->id, $course->id, 'student');
+        certificate::issue_certificate($customcert->id, $student->id);
+        $this->setUser($student);
+
+        $output = $this->run_footer_hook($course, $customcert->cmid, 'mod-customcert-view');
+
+        $this->assertSame('', $output);
     }
 
     /**

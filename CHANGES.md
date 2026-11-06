@@ -1,3 +1,12 @@
+## [1.1.6] - 2026-11-06
+
+### 🔧 Changed
+
+- Disable the whole plugin when it is disabled in the Datacurso AI provider (Site administration > AI > Datacurso plugins list): the share panel is not rendered and the web services (share state, share log and AI generation) reject every call with the provider message, which links an administrator to the provider plugins list
+- Move the former "Enable AI to suggest post text" switch (`enableai`) to the Datacurso AI provider, which copies its value as the state of the whole plugin; the setting and its strings are removed from the plugin and the setting is deleted on upgrade
+- Add the "Enable AI assistant" setting (`aiassistant_enabled`, on by default and switched on by the upgrade, so existing sites keep the assistant) to the plugin settings page: turning it off hides the AI card that writes the LinkedIn post, keeps the Share on LinkedIn option and makes the AI generation web service refuse with the new `aiassistantdisabled` error before contacting the AI service. It replaces the former `aidisabled` error, whose string is removed
+- Require aiprovider_datacurso 2026110400
+
 ## [1.1.5] - 2026-11-04
 
 **Compatibility note:** This version is compatible from **Moodle 4.5** to **Moodle 5.3**.

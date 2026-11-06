@@ -23,7 +23,7 @@ The plugin does not modify *Custom certificate*: it adds its own panel at the en
 
 * **Moodle 4.5** to **Moodle 5.2**.
 * **[Custom certificate](https://moodle.org/plugins/mod_customcert)** (`mod_customcert`), minimum version **2024042212**.
-* **[DataCurso AI Provider](https://moodle.org/plugins/aiprovider_datacurso/versions)** (`aiprovider_datacurso`), minimum version **2025100201**, configured with a valid licence key. See [Getting license keys](https://docs.datacurso.com/index.php?title=Datacurso_AI_Provider#Getting_license_keys).
+* **[DataCurso AI Provider](https://moodle.org/plugins/aiprovider_datacurso/versions)** (`aiprovider_datacurso`), minimum version **2026110400**, configured with a valid licence key. See [Getting license keys](https://docs.datacurso.com/index.php?title=Datacurso_AI_Provider#Getting_license_keys).
 
 > **Both plugins are required dependencies:** Moodle will not install Share Certificate AI until they are present. The share button works without a licence key, but the AI assistant needs the provider installed **and** licensed.
 
@@ -66,13 +66,14 @@ The plugin does not modify *Custom certificate*: it adds its own panel at the en
 
      * Used only as context for the AI assistant when it drafts the post. It is **not** sent to LinkedIn: LinkedIn resolves the organization from the ID above.
      * Enter the **exact name as it appears on LinkedIn** so the drafted text matches the page.
-   * **Enable AI to suggest post text** (`enableai`) — *global toggle*, enabled by default.
+   * **Enable AI assistant** (`aiassistant_enabled`) — *enabled by default*.
 
-     * When enabled, learners with an issued certificate see the AI assistant in the panel.
-     * When disabled, the assistant is hidden and the AI service is never contacted; the share button stays available.
+     * Shows the AI card that writes the LinkedIn post. When off, only the **Share on LinkedIn** option is shown and the AI service is never contacted.
 4. Click **Save changes**.
 
 ![Plugin settings](./_docs/images/local_socialcert_settings.png)
+
+The whole plugin is switched on or off in the Datacurso AI provider: **Site administration → AI → Datacurso plugins list → Settings** of Share Certificate AI. It is enabled by default. When disabled, the whole plugin is disabled: the share panel (share button and AI assistant) is not shown, the AI service is never contacted and the web services of the plugin answer with the provider message.
 
 ### How to find your LinkedIn organization ID
 
