@@ -87,6 +87,3 @@ follow the directory's own documentation rather than this file.
 
 - Check the versions page, <https://moodle.org/plugins/local_socialcert/versions>: the new version
   lists the right release name, build number and supported Moodle versions, and its download works.
-- Revoke any moodle.org token that was ever stored outside a maintainer's machine, including the
-  `MOODLE_ORG_TOKEN` secret the removed workflow used, and delete that secret from the GitHub
-  repository settings.
