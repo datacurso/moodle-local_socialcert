@@ -21,6 +21,7 @@ use local_socialcert\event\ai_text_generated;
 use local_socialcert\event\certificate_shared;
 use local_socialcert\external\log_share;
 use local_socialcert\fixtures\customcert_dependency_trait;
+use local_socialcert\fixtures\provider_dependency_trait;
 use local_socialcert\output\main_panel;
 use mod_customcert\certificate;
 
@@ -29,6 +30,7 @@ defined('MOODLE_INTERNAL') || die();
 global $CFG;
 require_once($CFG->libdir . '/adminlib.php');
 require_once(__DIR__ . '/fixtures/customcert_dependency_trait.php');
+require_once(__DIR__ . '/fixtures/provider_dependency_trait.php');
 
 /**
  * Plugin level compliance tests: global settings, language packs, events and capabilities.
@@ -41,6 +43,7 @@ require_once(__DIR__ . '/fixtures/customcert_dependency_trait.php');
  */
 final class plugin_compliance_test extends \advanced_testcase {
     use customcert_dependency_trait;
+    use provider_dependency_trait;
 
     /** @var string Relative path of the plugin. */
     private const PLUGINPATH = '/local/socialcert';
@@ -622,6 +625,7 @@ final class plugin_compliance_test extends \advanced_testcase {
      * here is the contract both event classes have to honour to be usable in the log reports.
      */
     public function test_user_actions_are_logged_as_events(): void {
+        $this->require_ai_provider();
         $this->resetAfterTest();
 
         set_config('organizationid', '12345', 'local_socialcert');

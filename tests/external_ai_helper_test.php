@@ -23,6 +23,7 @@ use core_external\external_value;
 use local_socialcert\event\ai_text_generated;
 use local_socialcert\external\ai_helper;
 use local_socialcert\fixtures\customcert_dependency_trait;
+use local_socialcert\fixtures\provider_dependency_trait;
 use local_socialcert\fixtures\stub_ai_services_api;
 use local_socialcert\fixtures\testable_ai_helper;
 use local_socialcert\output\main_panel;
@@ -32,6 +33,7 @@ defined('MOODLE_INTERNAL') || die();
 global $CFG;
 require_once($CFG->dirroot . '/webservice/tests/helpers.php');
 require_once(__DIR__ . '/fixtures/customcert_dependency_trait.php');
+require_once(__DIR__ . '/fixtures/provider_dependency_trait.php');
 
 /**
  * Tests for the AI text generation external function.
@@ -56,6 +58,7 @@ require_once(__DIR__ . '/fixtures/customcert_dependency_trait.php');
  */
 final class external_ai_helper_test extends \externallib_advanced_testcase {
     use customcert_dependency_trait;
+    use provider_dependency_trait;
 
     /** @var string Name of the single external function declared by the plugin. */
     private const FUNCTIONNAME = 'local_socialcert_get_ai_response';
@@ -66,6 +69,7 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
      * @return \stdClass Object with course, customcert, cmid, modcontext and student.
      */
     private function create_certificate_fixture(): \stdClass {
+        $this->require_ai_provider();
         $this->require_customcert();
         $generator = $this->getDataGenerator();
 
@@ -114,21 +118,6 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
      */
     private function disable_provider_license(): void {
         set_config('licensekey', '', 'aiprovider_datacurso');
-    }
-
-    /**
-     * Skip the current test when the AI provider plugin is not installed on the site.
-     *
-     * The provider is declared as a dependency of this plugin, but it is not published publicly,
-     * so continuous integration environments may run without it. Only the tests that reach the
-     * HTTP client need it: every business revalidation happens before the client is built.
-     *
-     * @return void
-     */
-    private function require_ai_provider(): void {
-        if (\core_component::get_component_directory('aiprovider_datacurso') === null) {
-            $this->markTestSkipped('The aiprovider_datacurso plugin is not installed on this site.');
-        }
     }
 
     /**
