@@ -385,6 +385,7 @@ final class external_share_state_test extends \externallib_advanced_testcase {
      * browser.
      */
     public function test_state_is_rejected_when_the_plugin_is_disabled_in_the_provider(): void {
+        $this->require_ai_provider();
         $this->resetAfterTest();
 
         set_config('organizationid', '98765', 'local_socialcert');
@@ -408,6 +409,7 @@ final class external_share_state_test extends \externallib_advanced_testcase {
      * MDL-E2E-002: A site administrator is pointed to the provider plugins list while disabled.
      */
     public function test_state_rejection_names_the_provider_plugins_list_for_an_administrator(): void {
+        $this->require_ai_provider();
         $this->resetAfterTest();
 
         \aiprovider_datacurso\local\plugin_settings::set_enabled('local_socialcert', false);

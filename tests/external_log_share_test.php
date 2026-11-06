@@ -180,6 +180,7 @@ final class external_log_share_test extends \externallib_advanced_testcase {
      * MDL-INT-014: Nothing is recorded while the plugin is disabled in the Datacurso AI provider.
      */
     public function test_share_is_rejected_when_the_plugin_is_disabled_in_the_provider(): void {
+        $this->require_ai_provider();
         $this->resetAfterTest();
 
         set_config('organizationid', '98765', 'local_socialcert');
