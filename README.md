@@ -69,6 +69,11 @@ The plugin does not modify *Custom certificate*: it adds its own panel at the en
    * **Enable AI assistant** (`aiassistant_enabled`) — *enabled by default*.
 
      * Shows the AI card that writes the LinkedIn post. When off, only the **Share on LinkedIn** option is shown and the AI service is never contacted.
+   * **AI requests limit per user per hour** (`airatelimit`) — default `10`.
+
+     * Maximum number of generations one user can request per hour. Past it, the call is refused before the AI service is contacted, and the card tells the learner the limit and that it resets within the hour. A missing, zero or negative value falls back to 10.
+     * The count uses the user quota of the Moodle AI subsystem (fixed one hour window). Every call that passes the activity checks counts toward the hourly quota, even when it fails afterwards (for instance a missing licence key, an unreachable service or an error of the provider).
+     * Also enable the usage limit of the DataCurso AI Provider (`aiprovider_datacurso`) before enabling the assistant, so the provider enforces a ceiling of its own.
 4. Click **Save changes**.
 
 ![Plugin settings](./_docs/images/local_socialcert_settings.png)
@@ -123,7 +128,7 @@ The panel is shown only to users who can receive the certificate of the activity
 
    ![Share on LinkedIn button](./_docs/images/local_socialcert_linkedin_button.png)
 
-2. A LinkedIn window opens with the certificate details **already filled in** (title, issuing organization, issue date, credential ID and verification URL). Review and click **Save**.
+2. A LinkedIn window opens with the certificate details **already filled in** (title, issuing organization, issue date, credential ID, verification URL and, when the certificate expires, the expiration date). Review and click **Save**.
 
    ![LinkedIn add-to-profile dialog prefilled](./_docs/images/local_socialcert_linkedin_form.png)
 
@@ -168,6 +173,12 @@ Both are checked in the module context, so they can be overridden per activity, 
 ## Logs
 
 Every share and every AI generation is recorded as an event of the plugin, visible in **Site administration → Reports → Logs** and in the course logs. Only generations the AI service really answered are logged, so the log reflects the consumption of credits.
+
+---
+
+## Releasing
+
+Maintainers publish new versions by hand, in GitHub and in the Moodle plugins directory. The steps are in [RELEASING.md](RELEASING.md).
 
 ---
 
