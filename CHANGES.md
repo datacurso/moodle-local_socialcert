@@ -1,3 +1,26 @@
+## [1.1.7] - 2026-11-09
+
+**Compatibility note:** This version is compatible from **Moodle 4.5** to **Moodle 5.3**.
+
+This version closes the three findings of the Mindfree security report MFR-ZN624XJAL27LCFWPNQQYCB6T on version 1.1.4; versions 1.1.5 and 1.1.6 shipped before these fixes and do not include them. Each entry names the finding it closes and the automated test that backs it.
+
+### 🚀 Added
+
+- New setting **AI requests limit per user per hour** (`airatelimit`, default 10), with its description in the seven language packs and in the README
+
+### 🔧 Changed
+
+- The PHPUnit test of a missing provider licence key asserts the error code of the provider instead of its localized text, which changed in aiprovider_datacurso 1.6.4 (`tests/external_ai_helper_test.php`)
+
+### 🔒 Security
+
+- SOCIALCERT-SEC-001: remove the GitHub Actions workflow `moodle-release.yml`, which inserted the manually typed tag name into a shell step that had the moodle.org publishing token at hand. A guard test now fails if any workflow directly interpolates untrusted input into a `run` or `script` step, or exposes that token again; its docblock lists the indirect forms it does not cover (`tests/ci/workflow_security_test.php`). Publishing to the moodle.org directory becomes a manual step
+- SOCIALCERT-SEC-002: the web service `local_socialcert_get_ai_response` spends one unit of a per user hourly quota, taken from the Moodle AI rate limiter under a per user lock, after every business check passes and before the provider is contacted. Calls over the limit are refused with `error_ratelimit_exceeded` and a message that names the limit; a call that cannot take the lock is refused with `error_ratelimit_busy` without spending the quota, which the assistant card shows as its generic "try again later" message (`tests/external_ai_helper_ratelimit_test.php`)
+
+### 🐞 Fixed
+
+- SOCIALCERT-PRIV-001: the privacy metadata of the LinkedIn destination now declares the expiration date that the "Add to profile" link carries when the certificate expires. A test builds the link with and without an expiration date and checks that every parameter it carries is declared with its language string (`tests/privacy_provider_test.php`)
+
 ## [1.1.6] - 2026-11-06
 
 ### 🔧 Changed
