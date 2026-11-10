@@ -52,6 +52,53 @@ final class plugin_compliance_test extends \advanced_testcase {
     private const LANGUAGES = ['en', 'es', 'de', 'fr', 'pt', 'id', 'ru'];
 
     /**
+     * The settings page warns, right above the assistant switch, whether the usage limit of the
+     * provider protects the credits: red when it is off, green with the limit when it is on.
+     *
+     * @return void
+     */
+    public function test_settings_page_warns_about_the_provider_limit(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        if (\core_component::get_component_directory('aiprovider_datacurso') === null) {
+            $this->markTestSkipped('The aiprovider_datacurso plugin is not installed on this site.');
+        }
+
+        $page = $this->get_plugin_settings_page();
+        $names = array_values(array_map(
+            static fn(\admin_setting $setting): string => $setting->plugin . '/' . $setting->name,
+            (array) $page->settings
+        ));
+        $notice = array_search('local_socialcert/providerlimit_notice', $names, true);
+        $switch = array_search('local_socialcert/aiassistant_enabled', $names, true);
+        $this->assertNotFalse($notice, 'The settings page must carry the provider limit warning.');
+        $this->assertNotFalse($switch);
+        $this->assertSame($switch - 1, $notice, 'The warning must sit right above the assistant switch.');
+
+        $setting = $this->index_settings($page)['local_socialcert/providerlimit_notice'];
+        $this->assertInstanceOf(\admin_setting_description::class, $setting);
+
+        set_config('ratelimit_local_socialcert_enable', 0, 'aiprovider_datacurso');
+        $html = $setting->output_html('');
+        $this->assertStringContainsString('alert-danger', $html, 'Limit off: a red alert.');
+        $this->assertStringContainsString('/ai/provider/datacurso/admin/report_sections.php', $html);
+        $this->assertStringContainsString('tab=config', $html);
+        $this->assertStringNotContainsString('alert-success', $html);
+
+        set_config('ratelimit_local_socialcert_enable', 1, 'aiprovider_datacurso');
+        set_config('ratelimit_local_socialcert_limit', 3, 'aiprovider_datacurso');
+        set_config('ratelimit_local_socialcert_window', json_encode(['value' => 1, 'unit' => 'hours']), 'aiprovider_datacurso');
+        $html = $setting->output_html('');
+        $this->assertStringContainsString('alert-success', $html, 'Limit on: a green alert.');
+        $this->assertStringContainsString('3', $html);
+        $this->assertStringContainsString(format_time(HOURSECS), $html);
+        $this->assertStringNotContainsString('alert-danger', $html);
+
+        // The switch itself names the dependency on the provider limit.
+        $this->assertStringContainsString('limit', get_string('aiassistant_enabled_desc', 'local_socialcert'));
+    }
+
+    /**
      * Visible strings of the share panel that every language pack is expected to translate.
      *
      * Every key the panel renders is listed here: the hero of the section, the notices it can show,
@@ -267,7 +314,9 @@ final class plugin_compliance_test extends \advanced_testcase {
         $page = $this->get_plugin_settings_page();
         $settings = $this->index_settings($page);
 
-        $this->assertCount(3, $settings, 'The plugin must expose exactly three global settings.');
+        // The warning about the provider limit is a description, not a stored setting.
+        $saved = array_filter($settings, static fn(\admin_setting $setting): bool => empty($setting->nosave));
+        $this->assertCount(3, $saved, 'The plugin must expose exactly three global settings.');
 
         $this->assertArrayHasKey('local_socialcert/organizationid', $settings);
         $organizationid = $settings['local_socialcert/organizationid'];
