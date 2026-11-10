@@ -23,6 +23,7 @@ use core_external\external_value;
 use local_socialcert\event\ai_text_generated;
 use local_socialcert\external\ai_helper;
 use local_socialcert\fixtures\customcert_dependency_trait;
+use local_socialcert\fixtures\provider_dependency_trait;
 use local_socialcert\fixtures\stub_ai_services_api;
 use local_socialcert\fixtures\testable_ai_helper;
 use local_socialcert\local\tenancy;
@@ -34,6 +35,7 @@ defined('MOODLE_INTERNAL') || die();
 global $CFG;
 require_once($CFG->dirroot . '/webservice/tests/helpers.php');
 require_once(__DIR__ . '/fixtures/customcert_dependency_trait.php');
+require_once(__DIR__ . '/fixtures/provider_dependency_trait.php');
 
 /**
  * Tests for the AI text generation external function.
@@ -42,8 +44,9 @@ require_once(__DIR__ . '/fixtures/customcert_dependency_trait.php');
  * business rule is exercised through it. Note that ai_helper::execute() wraps everything
  * after validate_parameters() in a try/catch that converts exceptions into a controlled
  * ['ok' => false, 'message' => ...] payload, so rejections are asserted on the returned
- * array instead of with expectException(). Only malformed parameters still throw, because
- * validate_parameters() runs outside the try block.
+ * array instead of with expectException(). Only malformed parameters and a plugin disabled in the
+ * Datacurso AI provider still throw, because validate_parameters() and the provider guard run
+ * outside the try block.
  *
  * Since version 1.1.4 the browser only names the activity and the social network: the inputs of
  * the prompt (certificate, course and organization) are computed on the server from the same
@@ -57,6 +60,7 @@ require_once(__DIR__ . '/fixtures/customcert_dependency_trait.php');
  */
 final class external_ai_helper_test extends \externallib_advanced_testcase {
     use customcert_dependency_trait;
+    use provider_dependency_trait;
 
     /** @var string Name of the single external function declared by the plugin. */
     private const FUNCTIONNAME = 'local_socialcert_get_ai_response';
@@ -67,6 +71,7 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
      * @return \stdClass Object with course, customcert, cmid, modcontext and student.
      */
     private function create_certificate_fixture(): \stdClass {
+        $this->require_ai_provider();
         $this->require_customcert();
         $generator = $this->getDataGenerator();
 
@@ -115,21 +120,6 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
      */
     private function disable_provider_license(): void {
         set_config('licensekey', '', 'aiprovider_datacurso');
-    }
-
-    /**
-     * Skip the current test when the AI provider plugin is not installed on the site.
-     *
-     * The provider is declared as a dependency of this plugin, but it is not published publicly,
-     * so continuous integration environments may run without it. Only the tests that reach the
-     * HTTP client need it: every business revalidation happens before the client is built.
-     *
-     * @return void
-     */
-    private function require_ai_provider(): void {
-        if (\core_component::get_component_directory('aiprovider_datacurso') === null) {
-            $this->markTestSkipped('The aiprovider_datacurso plugin is not installed on this site.');
-        }
     }
 
     /**
@@ -351,7 +341,8 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
 
         $fixture = $this->create_certificate_fixture();
         $this->issue_certificate($fixture->customcert, $fixture->student);
-        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
+        tenant_config::set('aiassistant_enabled', 1, tenancy::get_tenant_id());
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
         $this->setUser($fixture->student);
 
         $sink = $this->redirectEvents();
@@ -386,7 +377,8 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
         rebuild_course_cache($fixture->course->id, true);
         tenant_config::set('organizationname', 'Buen Data', tenancy::get_tenant_id());
         $this->issue_certificate($fixture->customcert, $fixture->student);
-        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
+        tenant_config::set('aiassistant_enabled', 1, tenancy::get_tenant_id());
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
         $this->setUser($fixture->student);
 
         $result = $helper::execute($fixture->cmid, 'linkedin');
@@ -425,7 +417,8 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
 
         $fixture = $this->create_certificate_fixture();
         $this->issue_certificate($fixture->customcert, $fixture->student);
-        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
+        tenant_config::set('aiassistant_enabled', 1, tenancy::get_tenant_id());
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
         $this->setUser($fixture->student);
 
         $failure = new \moodle_exception('error_ratelimit_exceeded', 'aiprovider_datacurso', '', '12:00');
@@ -451,7 +444,8 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
 
         $fixture = $this->create_certificate_fixture();
         $this->issue_certificate($fixture->customcert, $fixture->student);
-        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
+        tenant_config::set('aiassistant_enabled', 1, tenancy::get_tenant_id());
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
         $this->setUser($fixture->student);
 
         $failure = new \moodle_exception('invalidrecord', 'error', '', 'customcert_issues');
@@ -495,7 +489,8 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
 
         $fixture = $this->create_certificate_fixture();
         $this->issue_certificate($fixture->customcert, $fixture->student);
-        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
+        tenant_config::set('aiassistant_enabled', 1, tenancy::get_tenant_id());
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
         $this->setUser($fixture->student);
 
         $helper::$client->failure = new $class($text);
@@ -568,25 +563,55 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
     }
 
     /**
-     * MDL-INT-010: With AI globally disabled the request is rejected without contacting the service.
+     * MDL-INT-010: With the plugin disabled in the provider the request is rejected without
+     * contacting the service.
      *
-     * The plugin never read local_socialcert/enableai in the external function, so the call reached
-     * the HTTP client and the failure came from the unconfigured provider (a transport concern)
-     * instead of a business rule. The setting is now revalidated before the client is built.
+     * The switch is the plugin state kept by the Datacurso AI provider, and disabling it disables the
+     * whole plugin. The function stops with the provider guard right after validating its
+     * parameters, so it throws the provider message instead of returning a payload, and the client
+     * is never asked for anything.
+     *
+     * @return void
      */
-    public function test_request_is_rejected_when_ai_is_globally_disabled(): void {
+    public function test_request_is_rejected_when_the_plugin_is_disabled_in_the_provider(): void {
         $this->resetAfterTest();
+        $class = $this->load_testable_ai_helper();
         $fixture = $this->create_certificate_fixture();
         $this->issue_certificate($fixture->customcert, $fixture->student);
-        $this->disable_provider_license();
-        tenant_config::set('enableai', 0, tenancy::get_tenant_id());
+        \aiprovider_datacurso\local\plugin_settings::set_enabled('local_socialcert', false);
 
         $this->setUser($fixture->student);
 
-        $result = ai_helper::execute($fixture->cmid);
-        $this->flush_debugging();
+        try {
+            $class::execute($fixture->cmid);
+            $this->fail('A request made while the plugin is disabled must be rejected.');
+        } catch (\moodle_exception $e) {
+            $this->assertSame('plugindisabled', $e->errorcode);
+            $this->assertSame('aiprovider_datacurso', $e->module);
+        }
 
-        $this->assert_business_rejection($result, 'A request made while AI is globally disabled');
+        $this->assertSame([], testable_ai_helper::$client->requests, 'The service must never be contacted.');
+    }
+
+    /**
+     * MDL-INT-010: A site administrator is pointed to the provider plugins list when the plugin is
+     * disabled.
+     *
+     * @return void
+     */
+    public function test_request_from_an_administrator_names_the_provider_plugins_list_when_disabled(): void {
+        $this->resetAfterTest();
+        $fixture = $this->create_certificate_fixture();
+        \aiprovider_datacurso\local\plugin_settings::set_enabled('local_socialcert', false);
+
+        $this->setAdminUser();
+
+        try {
+            ai_helper::execute($fixture->cmid);
+            $this->fail('A request made while the plugin is disabled must be rejected.');
+        } catch (\moodle_exception $e) {
+            $this->assertSame('plugindisabled_admin', $e->errorcode);
+        }
     }
 
     /**
@@ -599,7 +624,8 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
         $this->resetAfterTest();
         $fixture = $this->create_certificate_fixture();
         $this->disable_provider_license();
-        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
+        tenant_config::set('aiassistant_enabled', 1, tenancy::get_tenant_id());
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
 
         $this->setUser($fixture->student);
 
@@ -620,7 +646,8 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
         $this->resetAfterTest();
         $fixture = $this->create_certificate_fixture();
         $this->disable_provider_license();
-        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
+        tenant_config::set('aiassistant_enabled', 1, tenancy::get_tenant_id());
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
 
         $page = $this->getDataGenerator()->create_module('page', ['course' => $fixture->course->id]);
         $this->setUser($fixture->student);
@@ -752,7 +779,8 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
 
         $fixture = $this->create_certificate_fixture();
         $this->issue_certificate($fixture->customcert, $fixture->student);
-        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
+        tenant_config::set('aiassistant_enabled', 1, tenancy::get_tenant_id());
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
         $this->setUser($fixture->student);
 
         $result = $helper::execute($fixture->cmid);
@@ -779,7 +807,8 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
 
         $fixture = $this->create_certificate_fixture();
         $this->issue_certificate($fixture->customcert, $fixture->student);
-        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
+        tenant_config::set('aiassistant_enabled', 1, tenancy::get_tenant_id());
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
         $this->setUser($fixture->student);
 
         $sink = $this->redirectEvents();
@@ -811,7 +840,8 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
         $this->resetAfterTest();
         $fixture = $this->create_certificate_fixture();
         $this->disable_provider_license();
-        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
+        tenant_config::set('aiassistant_enabled', 1, tenancy::get_tenant_id());
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
         $this->setUser($fixture->student);
 
         $sink = $this->redirectEvents();
@@ -825,6 +855,53 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
     }
 
     /**
+     * MDL-INT-001: The function refuses to generate while the AI assistant setting is off.
+     *
+     * Hiding the card in the panel does not stop a direct call to the web service, so the setting is
+     * revalidated here and the AI service is never contacted.
+     */
+    public function test_request_is_rejected_when_the_assistant_setting_is_off(): void {
+        $this->resetAfterTest();
+        $helper = $this->load_testable_ai_helper();
+
+        $fixture = $this->create_certificate_fixture();
+        $this->issue_certificate($fixture->customcert, $fixture->student);
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
+        tenant_config::set('aiassistant_enabled', 0, tenancy::get_tenant_id());
+        $this->setUser($fixture->student);
+
+        $sink = $this->redirectEvents();
+        $result = $helper::execute($fixture->cmid, 'linkedin');
+        $events = $sink->get_events();
+        $sink->close();
+        $this->flush_debugging();
+
+        $this->assert_controlled_rejection($result, 'aiassistantdisabled');
+        $this->assertSame(get_string('aiassistantdisabled', 'local_socialcert'), $result['message']);
+        $this->assertSame([], $helper::$client->requests, 'The service must not be contacted while the assistant is off.');
+        $this->assertSame([], $events, 'A rejected generation must leave no trace in the logs.');
+    }
+
+    /**
+     * MDL-INT-001: The function generates while the AI assistant setting was never stored.
+     */
+    public function test_request_reaches_the_service_when_the_assistant_setting_is_unset(): void {
+        $this->resetAfterTest();
+        $helper = $this->load_testable_ai_helper();
+
+        $fixture = $this->create_certificate_fixture();
+        $this->issue_certificate($fixture->customcert, $fixture->student);
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
+        tenant_config::unset('aiassistant_enabled', tenancy::get_tenant_id());
+        $this->setUser($fixture->student);
+
+        $result = $helper::execute($fixture->cmid, 'linkedin');
+
+        $this->assertArrayHasKey('json', $result);
+        $this->assertCount(1, $helper::$client->requests);
+    }
+
+    /**
      * MDL-INT-015: The function rejects a user without the capability of the AI assistant.
      *
      * The assistant spends the AI credits of the licence, so the capability is revalidated in the
@@ -835,7 +912,8 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
         $fixture = $this->create_certificate_fixture();
         $this->issue_certificate($fixture->customcert, $fixture->student);
         $this->disable_provider_license();
-        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
+        tenant_config::set('aiassistant_enabled', 1, tenancy::get_tenant_id());
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
 
         $roleid = $this->getDataGenerator()->create_role(['shortname' => 'socialcertaidenied']);
         assign_capability('local/socialcert:useaiassistant', CAP_PROHIBIT, $roleid, $fixture->modcontext->id, true);
@@ -867,7 +945,7 @@ final class external_ai_helper_test extends \externallib_advanced_testcase {
         $fixture = $this->create_certificate_fixture();
         $this->issue_certificate($fixture->customcert, $fixture->student);
         $this->disable_provider_license();
-        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
+        tenant_config::set('aiassistant_enabled', 1, tenancy::get_tenant_id());
 
         $roleid = $this->getDataGenerator()->create_role(['shortname' => 'socialcertnoreceive']);
         assign_capability('mod/customcert:receiveissue', CAP_PROHIBIT, $roleid, $fixture->modcontext->id, true);

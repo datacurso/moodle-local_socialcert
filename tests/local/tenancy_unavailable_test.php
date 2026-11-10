@@ -145,7 +145,7 @@ final class tenancy_unavailable_test extends \advanced_testcase {
         foreach ($page->settings as $setting) {
             $settings[$setting->name] = $setting;
         }
-        $this->assertSame(['organizationid', 'organizationname', 'enableai'], array_keys($settings));
+        $this->assertSame(['organizationid', 'organizationname', 'aiassistant_enabled'], array_keys($settings));
         $this->assertSame('555', $settings['organizationid']->get_setting());
 
         $count = admin_write_settings((object) ['s_local_socialcert_organizationname' => 'Acme']);

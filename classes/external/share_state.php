@@ -24,6 +24,7 @@
 
 namespace local_socialcert\external;
 
+use aiprovider_datacurso\local\plugin_settings;
 use core_external\external_api;
 use core_external\external_function_parameters;
 use core_external\external_single_structure;
@@ -75,6 +76,9 @@ class share_state extends external_api {
         global $USER;
 
         $params = self::validate_parameters(self::execute_parameters(), ['cmid' => $cmid]);
+
+        // A plugin disabled in the Datacurso AI provider is disabled as a whole.
+        plugin_settings::require_enabled('local_socialcert');
 
         if ($params['cmid'] <= 0) {
             throw new \moodle_exception('invalidcmid', 'local_socialcert');

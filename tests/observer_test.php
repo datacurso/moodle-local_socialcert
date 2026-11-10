@@ -45,7 +45,7 @@ final class observer_test extends \advanced_testcase {
         $tenantb = (int) $tenantgenerator->create_tenant()->id;
 
         tenant_config::set('organizationid', '111', $tenanta);
-        tenant_config::set('enableai', 0, $tenanta);
+        tenant_config::set('aiassistant_enabled', 0, $tenanta);
         tenant_config::set('organizationid', '222', $tenantb);
 
         $manager = new \tool_tenant\manager();

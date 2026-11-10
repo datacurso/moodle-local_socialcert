@@ -21,6 +21,7 @@ use local_socialcert\event\ai_text_generated;
 use local_socialcert\event\certificate_shared;
 use local_socialcert\external\log_share;
 use local_socialcert\fixtures\customcert_dependency_trait;
+use local_socialcert\fixtures\provider_dependency_trait;
 use local_socialcert\local\tenancy;
 use local_socialcert\local\tenant_config;
 use local_socialcert\output\main_panel;
@@ -31,6 +32,7 @@ defined('MOODLE_INTERNAL') || die();
 global $CFG;
 require_once($CFG->libdir . '/adminlib.php');
 require_once(__DIR__ . '/fixtures/customcert_dependency_trait.php');
+require_once(__DIR__ . '/fixtures/provider_dependency_trait.php');
 
 /**
  * Plugin level compliance tests: global settings, language packs, events and capabilities.
@@ -44,6 +46,7 @@ require_once(__DIR__ . '/fixtures/customcert_dependency_trait.php');
 final class plugin_compliance_test extends \advanced_testcase {
     use \local_socialcert\tests\requires_workplace;
     use customcert_dependency_trait;
+    use provider_dependency_trait;
 
     /** @var string Relative path of the plugin. */
     private const PLUGINPATH = '/local/socialcert';
@@ -250,8 +253,13 @@ final class plugin_compliance_test extends \advanced_testcase {
     /**
      * MDL-INT-001: The three documented tenant settings exist with their documented defaults.
      *
+     * The AI assistant switch is 'aiassistant_enabled', not the former 'enableai', which the
+     * Datacurso AI provider reads as the legacy state of the whole plugin.
+     *
      * Step 4 of the case (the AI card disappearing from the panel while the LinkedIn button stays
      * available) is a rendering concern and is covered by Behat, not here.
+     *
+     * @return void
      */
     public function test_tenant_settings_declare_the_documented_defaults(): void {
         $this->resetAfterTest();
@@ -284,13 +292,17 @@ final class plugin_compliance_test extends \advanced_testcase {
         $this->assertInstanceOf(\local_socialcert\admin\setting_configtext::class, $organizationname);
         $this->assertSame('', $organizationname->get_defaultsetting());
 
-        $this->assertArrayHasKey('local_socialcert/enableai', $settings);
-        $enableai = $settings['local_socialcert/enableai'];
-        $this->assertInstanceOf(\local_socialcert\admin\setting_configcheckbox::class, $enableai);
-        $this->assertEquals(1, $enableai->get_defaultsetting(), 'AI must be enabled out of the box.');
+        // The switch of the AI assistant only hides the AI card; it is enabled by default. Its name is
+        // not the former 'enableai', which the provider reads as the legacy state of the whole plugin.
+        $this->assertArrayHasKey('local_socialcert/aiassistant_enabled', $settings);
+        $aiassistant = $settings['local_socialcert/aiassistant_enabled'];
+        $this->assertInstanceOf(\local_socialcert\admin\setting_configcheckbox::class, $aiassistant);
+        $this->assertEquals(1, $aiassistant->get_defaultsetting(), 'The AI assistant must be enabled out of the box.');
+
+        $this->assertArrayNotHasKey('local_socialcert/enableai', $settings, 'The provider keeps the plugin switch.');
 
         // Every setting has a help text and none hides another one.
-        foreach (['organizationid', 'organizationname', 'enableai'] as $name) {
+        foreach (['organizationid', 'organizationname', 'aiassistant_enabled'] as $name) {
             $this->assertTrue(
                 get_string_manager()->string_exists($name . '_desc', 'local_socialcert'),
                 "Missing help text for the '{$name}' setting."
@@ -312,6 +324,8 @@ final class plugin_compliance_test extends \advanced_testcase {
 
     /**
      * MDL-INT-001: The three settings persist in the store of the tenant, never in config_plugins.
+     *
+     * @return void
      */
     public function test_tenant_settings_persist_in_the_tenant_store(): void {
         $this->require_tool_tenant();
@@ -328,13 +342,13 @@ final class plugin_compliance_test extends \advanced_testcase {
         $this->setUser($user);
         $this->assertSame('', $settings['local_socialcert/organizationid']->write_setting('1234567'));
         $this->assertSame('', $settings['local_socialcert/organizationname']->write_setting('Datacurso'));
-        $this->assertSame('', $settings['local_socialcert/enableai']->write_setting('0'));
+        $this->assertSame('', $settings['local_socialcert/aiassistant_enabled']->write_setting('0'));
 
         $this->assertSame('1234567', tenant_config::get_raw('organizationid', $tenantid));
         $this->assertSame('Datacurso', tenant_config::get_raw('organizationname', $tenantid));
-        $this->assertSame('0', tenant_config::get_raw('enableai', $tenantid));
+        $this->assertSame('0', tenant_config::get_raw('aiassistant_enabled', $tenantid));
 
-        foreach (['organizationid', 'organizationname', 'enableai'] as $name) {
+        foreach (['organizationid', 'organizationname', 'aiassistant_enabled'] as $name) {
             $this->assertFalse(get_config('local_socialcert', $name), "'{$name}' must not reach config_plugins.");
         }
     }
@@ -652,10 +666,12 @@ final class plugin_compliance_test extends \advanced_testcase {
      * here is the contract both event classes have to honour to be usable in the log reports.
      */
     public function test_user_actions_are_logged_as_events(): void {
+        $this->require_ai_provider();
         $this->resetAfterTest();
 
         tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
-        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
+        tenant_config::set('aiassistant_enabled', 1, tenancy::get_tenant_id());
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
 
         $scenario = $this->create_certificate_scenario();
         $this->setUser($scenario->student);
@@ -777,7 +793,8 @@ final class plugin_compliance_test extends \advanced_testcase {
         $this->resetAfterTest();
 
         tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
-        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
+        tenant_config::set('aiassistant_enabled', 1, tenancy::get_tenant_id());
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
 
         $scenario = $this->create_certificate_scenario();
         $studentroleid = (int) $DB->get_field('role', 'id', ['shortname' => 'student'], MUST_EXIST);

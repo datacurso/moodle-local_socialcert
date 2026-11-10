@@ -27,6 +27,7 @@ namespace local_socialcert;
 
 use core\hook\output\before_footer_html_generation;
 use local_socialcert\fixtures\customcert_dependency_trait;
+use local_socialcert\fixtures\provider_dependency_trait;
 use local_socialcert\local\tenancy;
 use local_socialcert\local\tenant_config;
 use mod_customcert\certificate;
@@ -34,6 +35,7 @@ use mod_customcert\certificate;
 defined('MOODLE_INTERNAL') || die();
 
 require_once(__DIR__ . '/fixtures/customcert_dependency_trait.php');
+require_once(__DIR__ . '/fixtures/provider_dependency_trait.php');
 
 /**
  * Tests for local_socialcert\hook_callbacks.
@@ -49,17 +51,20 @@ require_once(__DIR__ . '/fixtures/customcert_dependency_trait.php');
  */
 final class hook_callbacks_test extends \advanced_testcase {
     use customcert_dependency_trait;
+    use provider_dependency_trait;
 
     /**
      * MDL-INT-002: the panel is injected at the end of the activity view for an authenticated
      * non guest user when the page has an associated course module.
      */
     public function test_panel_is_injected_on_the_certificate_view_for_an_authenticated_user(): void {
+        $this->require_ai_provider();
         $this->require_customcert();
         $this->resetAfterTest();
 
         tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
-        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
+        tenant_config::set('aiassistant_enabled', 1, tenancy::get_tenant_id());
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
 
         $generator = $this->getDataGenerator();
         $course = $generator->create_course();
@@ -75,6 +80,34 @@ final class hook_callbacks_test extends \advanced_testcase {
 
         $this->assertStringContainsString('local-socialcert', $output);
         $this->assertStringContainsString('data-cmid="' . $customcert->cmid . '"', $output);
+    }
+
+    /**
+     * MDL-INT-002: disabling the plugin in the Datacurso AI provider disables the whole panel, so
+     * not even a student who already holds the certificate gets the share button or the assistant.
+     */
+    public function test_panel_is_not_injected_when_the_plugin_is_disabled_in_the_provider(): void {
+        $this->require_ai_provider();
+        $this->require_customcert();
+        $this->resetAfterTest();
+
+        tenant_config::set('organizationid', '12345', tenancy::get_tenant_id());
+        \aiprovider_datacurso\local\plugin_settings::set_enabled('local_socialcert', false);
+
+        $generator = $this->getDataGenerator();
+        $course = $generator->create_course();
+        $customcert = $generator->create_module('customcert', [
+            'course' => $course->id,
+            'name'   => 'AI Fundamentals',
+        ]);
+        $student = $generator->create_user();
+        $generator->enrol_user($student->id, $course->id, 'student');
+        certificate::issue_certificate($customcert->id, $student->id);
+        $this->setUser($student);
+
+        $output = $this->run_footer_hook($course, $customcert->cmid, 'mod-customcert-view');
+
+        $this->assertSame('', $output);
     }
 
     /**
@@ -233,6 +266,7 @@ final class hook_callbacks_test extends \advanced_testcase {
      * underneath it. The callback now demands mod/customcert:receiveissue.
      */
     public function test_panel_is_not_injected_for_a_user_who_cannot_receive_the_certificate(): void {
+        $this->require_ai_provider();
         $this->require_customcert();
         $this->resetAfterTest();
 
@@ -269,6 +303,7 @@ final class hook_callbacks_test extends \advanced_testcase {
      * certificate of the activity.
      */
     public function test_panel_is_injected_for_a_user_who_can_receive_the_certificate(): void {
+        $this->require_ai_provider();
         $this->require_customcert();
         $this->resetAfterTest();
 
@@ -301,6 +336,7 @@ final class hook_callbacks_test extends \advanced_testcase {
      * the panel disappears because of the capability alone.
      */
     public function test_panel_is_not_injected_without_the_capability_of_the_plugin(): void {
+        $this->require_ai_provider();
         $this->require_customcert();
         $this->resetAfterTest();
 
@@ -344,6 +380,7 @@ final class hook_callbacks_test extends \advanced_testcase {
      */
     public function test_panel_is_not_injected_on_the_required_time_notice_page(): void {
         global $DB;
+        $this->require_ai_provider();
         $this->require_customcert();
         $this->resetAfterTest();
 
@@ -384,6 +421,7 @@ final class hook_callbacks_test extends \advanced_testcase {
      * hold every capability, so they both receive certificates and delete issues.
      */
     public function test_panel_is_not_injected_on_the_issue_deletion_confirmation_page(): void {
+        $this->require_ai_provider();
         $this->require_customcert();
         $this->resetAfterTest();
 

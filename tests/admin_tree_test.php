@@ -111,7 +111,7 @@ final class admin_tree_test extends \advanced_testcase {
             $names[$setting->name] = $setting;
         }
         // The scope notice only exists when there is a tenant to name (Moodle Workplace).
-        $expected = ['organizationid', 'organizationname', 'enableai'];
+        $expected = ['organizationid', 'organizationname', 'aiassistant_enabled'];
         if (\local_socialcert\local\tenancy::is_available()) {
             array_unshift($expected, 'tenantscopenotice');
         }
@@ -121,10 +121,10 @@ final class admin_tree_test extends \advanced_testcase {
         }
         $this->assertInstanceOf(\local_socialcert\admin\setting_configtext::class, $names['organizationid']);
         $this->assertInstanceOf(\local_socialcert\admin\setting_configtext::class, $names['organizationname']);
-        $this->assertInstanceOf(\local_socialcert\admin\setting_configcheckbox::class, $names['enableai']);
+        $this->assertInstanceOf(\local_socialcert\admin\setting_configcheckbox::class, $names['aiassistant_enabled']);
         $this->assertSame('', $names['organizationid']->get_defaultsetting());
         $this->assertSame('', $names['organizationname']->get_defaultsetting());
-        $this->assertEquals(1, $names['enableai']->get_defaultsetting());
+        $this->assertEquals(1, $names['aiassistant_enabled']->get_defaultsetting());
     }
 
     /**

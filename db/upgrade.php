@@ -25,6 +25,8 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+require_once(__DIR__ . '/upgradelib.php');
+
 /**
  * Execute local_socialcert upgrade from the given old version.
  *
@@ -78,6 +80,17 @@ function xmldb_local_socialcert_upgrade($oldversion) {
 
         // Socialcert savepoint reached.
         upgrade_plugin_savepoint(true, 2026100602, 'local', 'socialcert');
+    }
+
+    if ($oldversion < 2026110902) {
+        // The per tenant AI assistant switch is renamed from enableai to aiassistant_enabled, so the
+        // Datacurso AI provider never reads it as the state of the whole plugin. Every tenant keeps
+        // its own value and a value already stored under the new name is never overwritten. The
+        // switch of the provider (the whole plugin) is left untouched.
+        local_socialcert_upgrade_rename_ai_assistant_switch();
+
+        // Socialcert savepoint reached.
+        upgrade_plugin_savepoint(true, 2026110902, 'local', 'socialcert');
     }
 
     return true;
