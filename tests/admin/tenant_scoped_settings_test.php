@@ -65,12 +65,12 @@ final class tenant_scoped_settings_test extends \advanced_testcase {
     }
 
     /**
-     * Builds the AI checkbox as settings.php does.
+     * Builds the AI assistant checkbox as settings.php does.
      *
      * @return setting_configcheckbox
      */
     private function make_checkbox_setting(): setting_configcheckbox {
-        return new setting_configcheckbox('local_socialcert/enableai', 'Enable AI', '', 1);
+        return new setting_configcheckbox('local_socialcert/aiassistant_enabled', 'Enable AI assistant', '', 1);
     }
 
     /**
@@ -80,7 +80,7 @@ final class tenant_scoped_settings_test extends \advanced_testcase {
         $this->resetAfterTest();
         $this->login_into_new_tenant();
         set_config('organizationid', '999', 'local_socialcert');
-        set_config('enableai', '0', 'local_socialcert');
+        set_config('aiassistant_enabled', '0', 'local_socialcert');
 
         $this->assertSame('', $this->make_text_setting()->get_setting());
         $this->assertSame('1', $this->make_checkbox_setting()->get_setting());
@@ -112,12 +112,12 @@ final class tenant_scoped_settings_test extends \advanced_testcase {
 
         $setting = $this->make_checkbox_setting();
         $this->assertSame('', $setting->write_setting('0'));
-        $this->assertSame('0', tenant_config::get_raw('enableai', $tenantid));
+        $this->assertSame('0', tenant_config::get_raw('aiassistant_enabled', $tenantid));
         $this->assertSame('0', $setting->get_setting());
 
         $this->assertSame('', $setting->write_setting('1'));
-        $this->assertSame('1', tenant_config::get_raw('enableai', $tenantid));
-        $this->assertFalse(get_config('local_socialcert', 'enableai'));
+        $this->assertSame('1', tenant_config::get_raw('aiassistant_enabled', $tenantid));
+        $this->assertFalse(get_config('local_socialcert', 'aiassistant_enabled'));
     }
 
     /**
@@ -148,7 +148,7 @@ final class tenant_scoped_settings_test extends \advanced_testcase {
         $this->assertSame($before, $DB->count_records('local_socialcert_tenant_config'));
         $this->assertFalse(get_config('local_socialcert', 'organizationid'));
         $this->assertFalse(get_config('local_socialcert', 'organizationname'));
-        $this->assertFalse(get_config('local_socialcert', 'enableai'));
+        $this->assertFalse(get_config('local_socialcert', 'aiassistant_enabled'));
     }
 
     /**

@@ -32,6 +32,7 @@ use core_external\external_value;
 use local_socialcert\event\certificate_shared;
 use local_socialcert\external\log_share;
 use local_socialcert\fixtures\customcert_dependency_trait;
+use local_socialcert\fixtures\provider_dependency_trait;
 use local_socialcert\local\tenancy;
 use local_socialcert\local\tenant_config;
 use mod_customcert\certificate;
@@ -41,6 +42,7 @@ defined('MOODLE_INTERNAL') || die();
 global $CFG;
 require_once($CFG->dirroot . '/webservice/tests/helpers.php');
 require_once(__DIR__ . '/fixtures/customcert_dependency_trait.php');
+require_once(__DIR__ . '/fixtures/provider_dependency_trait.php');
 
 /**
  * Tests for the share logging external function.
@@ -58,6 +60,7 @@ require_once(__DIR__ . '/fixtures/customcert_dependency_trait.php');
  */
 final class external_log_share_test extends \externallib_advanced_testcase {
     use customcert_dependency_trait;
+    use provider_dependency_trait;
 
     /** @var string Name of the external function under test. */
     private const FUNCTIONNAME = 'local_socialcert_log_share';
@@ -68,6 +71,7 @@ final class external_log_share_test extends \externallib_advanced_testcase {
      * @return \stdClass Object with course, customcert, cmid, modcontext and student.
      */
     private function create_certificate_fixture(): \stdClass {
+        $this->require_ai_provider();
         $this->require_customcert();
         $generator = $this->getDataGenerator();
 
@@ -97,6 +101,7 @@ final class external_log_share_test extends \externallib_advanced_testcase {
      * @return \moodle_exception The rejection raised by the function.
      */
     private function capture_rejection(int $cmid): \moodle_exception {
+        $this->require_ai_provider();
         try {
             log_share::execute($cmid);
         } catch (\moodle_exception $e) {
@@ -171,6 +176,30 @@ final class external_log_share_test extends \externallib_advanced_testcase {
         $event = reset($events);
         $this->assertSame((int) $other->id, (int) $event->userid);
         $this->assertSame($otherissue->code, $event->other['certid']);
+    }
+
+    /**
+     * MDL-INT-014: Nothing is recorded while the plugin is disabled in the Datacurso AI provider.
+     */
+    public function test_share_is_rejected_when_the_plugin_is_disabled_in_the_provider(): void {
+        $this->require_ai_provider();
+        $this->resetAfterTest();
+
+        tenant_config::set('organizationid', '98765', tenancy::get_tenant_id());
+        \aiprovider_datacurso\local\plugin_settings::set_enabled('local_socialcert', false);
+
+        $fixture = $this->create_certificate_fixture();
+        certificate::issue_certificate($fixture->customcert->id, $fixture->student->id);
+        $this->setUser($fixture->student);
+
+        $sink = $this->redirectEvents();
+        $rejection = $this->capture_rejection($fixture->cmid);
+        $events = $sink->get_events();
+        $sink->close();
+
+        $this->assertSame('plugindisabled', $rejection->errorcode);
+        $this->assertSame('aiprovider_datacurso', $rejection->module);
+        $this->assertSame([], $events, 'A disabled plugin must record no share.');
     }
 
     /**

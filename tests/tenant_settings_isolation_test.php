@@ -16,7 +16,11 @@
 
 namespace local_socialcert;
 
+use aiprovider_datacurso\local\plugin_settings;
+use local_socialcert\external\share_state;
 use local_socialcert\fixtures\customcert_dependency_trait;
+use local_socialcert\fixtures\provider_dependency_trait;
+use local_socialcert\local\ai_assistant;
 use local_socialcert\local\tenant_config;
 use local_socialcert\output\linkedin_helper;
 use local_socialcert\output\main_panel;
@@ -25,6 +29,7 @@ use mod_customcert\certificate;
 defined('MOODLE_INTERNAL') || die();
 
 require_once(__DIR__ . '/fixtures/customcert_dependency_trait.php');
+require_once(__DIR__ . '/fixtures/provider_dependency_trait.php');
 
 /**
  * Tests that the plugin settings of a tenant never reach the users of another tenant.
@@ -35,10 +40,12 @@ require_once(__DIR__ . '/fixtures/customcert_dependency_trait.php');
  * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @covers      \local_socialcert\output\linkedin_helper
  * @covers      \local_socialcert\output\main_panel
+ * @covers      \local_socialcert\external\share_state
  */
 final class tenant_settings_isolation_test extends \advanced_testcase {
     use \local_socialcert\tests\requires_workplace;
     use customcert_dependency_trait;
+    use provider_dependency_trait;
 
     /**
      * Creates one certificate activity with an issued certificate for a student of each tenant.
@@ -135,15 +142,58 @@ final class tenant_settings_isolation_test extends \advanced_testcase {
     }
 
     /**
-     * One tenant can turn the AI assistant off without affecting the others.
+     * Tenant A can turn the AI assistant off while tenant B keeps it, and both keep the share option.
      */
-    public function test_one_tenant_can_disable_the_ai_independently(): void {
+    public function test_tenant_a_disables_the_assistant_while_tenant_b_keeps_it(): void {
         $this->resetAfterTest();
         $scenario = $this->create_two_tenant_scenario();
-        tenant_config::set('enableai', 0, $scenario->tenantb);
+        tenant_config::set('organizationid', '111', $scenario->tenanta);
+        tenant_config::set('organizationid', '222', $scenario->tenantb);
+        tenant_config::set('aiassistant_enabled', 0, $scenario->tenanta);
+        tenant_config::set('aiassistant_enabled', 1, $scenario->tenantb);
 
-        $this->assertTrue($this->get_state_as($scenario, $scenario->studenta)['enableai']);
-        $this->assertFalse($this->get_state_as($scenario, $scenario->studentb)['enableai']);
+        $this->assertFalse(ai_assistant::is_enabled($scenario->tenanta));
+        $this->assertTrue(ai_assistant::is_enabled($scenario->tenantb));
+
+        $statea = $this->get_state_as($scenario, $scenario->studenta);
+        $this->assertFalse($statea['enableai'], 'Tenant A turned the assistant off.');
+        $this->assertStringContainsString('organizationId=111', $statea['shareurl'], 'Tenant A keeps the share option.');
+
+        $stateb = $this->get_state_as($scenario, $scenario->studentb);
+        $this->assertTrue($stateb['enableai'], 'The setting of tenant A must not reach tenant B.');
+        $this->assertStringContainsString('organizationId=222', $stateb['shareurl']);
+    }
+
+    /**
+     * Disabling the plugin for tenant A in the Datacurso AI provider leaves tenant B with the whole plugin.
+     *
+     * The provider switch disables the whole plugin for a tenant, on top of the AI assistant setting of
+     * the plugin; the web service reads it for the tenant of the current user.
+     */
+    public function test_tenant_a_disabled_while_tenant_b_enabled(): void {
+        $this->require_ai_provider();
+        $this->resetAfterTest();
+        $scenario = $this->create_two_tenant_scenario();
+        tenant_config::set('organizationid', '111', $scenario->tenanta);
+        tenant_config::set('organizationid', '222', $scenario->tenantb);
+
+        plugin_settings::set_enabled('local_socialcert', false, $scenario->tenanta);
+        plugin_settings::set_enabled('local_socialcert', true, $scenario->tenantb);
+
+        $this->setUser($scenario->studentb);
+        $this->assertTrue(plugin_settings::is_enabled('local_socialcert'));
+        $stateb = share_state::execute($scenario->cmid);
+        $this->assertTrue($stateb['hasissue']);
+        $this->assertTrue($stateb['enableai']);
+
+        $this->setUser($scenario->studenta);
+        $this->assertFalse(plugin_settings::is_enabled('local_socialcert'));
+        try {
+            share_state::execute($scenario->cmid);
+            $this->fail('A tenant that disabled the plugin must have its web services rejected.');
+        } catch (\moodle_exception $e) {
+            $this->assertSame('plugindisabled', $e->errorcode);
+        }
     }
 
     /**

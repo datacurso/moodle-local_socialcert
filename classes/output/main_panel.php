@@ -31,6 +31,7 @@ use context_course;
 use context_module;
 use core\context;
 use core_user;
+use local_socialcert\local\ai_assistant;
 use local_socialcert\local\tenant_config;
 use moodle_url;
 
@@ -343,8 +344,15 @@ class main_panel implements renderable, templatable {
         // generation; the default archetype of the capability is the student, so nothing changes for
         // the users who reach the panel today. The web service revalidates the very same capability,
         // because hiding the card is not the control.
+        //
+        // The tenant setting of the assistant (local_socialcert/aiassistant_enabled) only hides the
+        // assistant: the share option stays available while it is off.
+        //
+        // The switch of the Datacurso AI provider is not read here: it disables the whole plugin for
+        // the tenant, so the panel is never rendered and the web services reject every call while it
+        // is off.
         $state['enableai'] = $state['hasissue']
-            && (bool) ((int) tenant_config::get('enableai', 1))
+            && ai_assistant::is_enabled()
             && has_capability('local/socialcert:useaiassistant', $context, $userid);
 
         return $state;

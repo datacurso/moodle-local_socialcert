@@ -1,3 +1,15 @@
+## [1.2.2-wp] - 2026-11-09
+
+**Compatibility note:** This version is compatible only with **Moodle Workplace 4.5**.
+
+### 🔧 Changed
+
+- The whole plugin is switched on or off in the Datacurso AI provider, per tenant (Site administration > AI > Datacurso plugins list, for the active tenant). Disabling the plugin there for a tenant disables it as a whole for the users of that tenant only: the share panel is not rendered and the web services (share state, share log and AI generation) reject every call with the provider message, which links an administrator to the provider plugins list. The other tenants keep the plugin
+- Rename the per tenant "Enable AI to suggest post text" switch (`enableai`) to "Enable AI assistant" (`aiassistant_enabled`), so the Datacurso AI provider never reads it as the state of the whole plugin. It stays a setting of the plugin, per tenant, on top of the provider switch: turning it off for a tenant hides the AI card that writes the LinkedIn post for the users of that tenant, keeps the Share on LinkedIn option and makes the AI generation web service refuse with the new `aiassistantdisabled` error before contacting the AI service. It replaces the former `aidisabled` error, whose string is removed
+- The upgrade renames the `enableai` value of every tenant to `aiassistant_enabled`, never over a value the tenant already stores under the new name. A site value of `enableai` left behind is handed to the default tenant (unless it already stores a value) and removed. The switch of the Datacurso AI provider is left untouched, so the plugin stays enabled for every tenant
+- Skip the tests that need the Datacurso AI provider when it is not installed
+- Require aiprovider_datacurso 2026110901, the first release that keeps the plugin switches per tenant
+
 ## [1.2.1-wp] - 2026-11-04
 
 **Compatibility note:** This version is compatible only with **Moodle Workplace 4.5**.

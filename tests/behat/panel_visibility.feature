@@ -27,10 +27,12 @@ Feature: Share panel injection scope and share button states
       | customcert | Course certificate | Course certificate intro | C1     | cert1    |
       | page       | Course page        | Course page intro        | C1     | page1    |
     And the following socialcert tenant settings are set:
-      | name             | value     |
-      | organizationid   | 98765     |
-      | organizationname | Buen Data |
-      | enableai         | 1         |
+      | name                | value     |
+      | organizationid      | 98765     |
+      | organizationname    | Buen Data |
+      | aiassistant_enabled | 1         |
+    And the following config values are set as admin:
+      | plugin_enabled_local_socialcert | 1 | aiprovider_datacurso |
 
   @MDL-INT-002
   Scenario: Panel is injected on the certificate activity view for an authenticated student

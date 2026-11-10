@@ -31,6 +31,7 @@ use core_external\external_single_structure;
 use core_external\external_value;
 use local_socialcert\external\share_state;
 use local_socialcert\fixtures\customcert_dependency_trait;
+use local_socialcert\fixtures\provider_dependency_trait;
 use local_socialcert\local\tenancy;
 use local_socialcert\local\tenant_config;
 use mod_customcert\certificate;
@@ -40,6 +41,7 @@ defined('MOODLE_INTERNAL') || die();
 global $CFG;
 require_once($CFG->dirroot . '/webservice/tests/helpers.php');
 require_once(__DIR__ . '/fixtures/customcert_dependency_trait.php');
+require_once(__DIR__ . '/fixtures/provider_dependency_trait.php');
 
 /**
  * Tests for the share panel state external function.
@@ -61,6 +63,7 @@ require_once(__DIR__ . '/fixtures/customcert_dependency_trait.php');
  */
 final class external_share_state_test extends \externallib_advanced_testcase {
     use customcert_dependency_trait;
+    use provider_dependency_trait;
 
     /** @var string Name of the external function under test. */
     private const FUNCTIONNAME = 'local_socialcert_get_share_state';
@@ -72,6 +75,7 @@ final class external_share_state_test extends \externallib_advanced_testcase {
      * @return \stdClass Object with course, customcert, cmid, modcontext and student.
      */
     private function create_certificate_fixture(string $certname = 'AI Fundamentals'): \stdClass {
+        $this->require_ai_provider();
         $this->require_customcert();
         $generator = $this->getDataGenerator();
 
@@ -101,6 +105,7 @@ final class external_share_state_test extends \externallib_advanced_testcase {
      * @return \moodle_exception The rejection raised by the function.
      */
     private function capture_rejection(int $cmid): \moodle_exception {
+        $this->require_ai_provider();
         try {
             share_state::execute($cmid);
         } catch (\moodle_exception $e) {
@@ -266,7 +271,8 @@ final class external_share_state_test extends \externallib_advanced_testcase {
         $this->resetAfterTest();
 
         tenant_config::set('organizationid', '98765', tenancy::get_tenant_id());
-        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
+        tenant_config::set('aiassistant_enabled', 1, tenancy::get_tenant_id());
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
 
         $fixture = $this->create_certificate_fixture();
         $this->setUser($fixture->student);
@@ -286,6 +292,31 @@ final class external_share_state_test extends \externallib_advanced_testcase {
     }
 
     /**
+     * MDL-INT-001: With the AI assistant setting off the state keeps the share URL but no assistant.
+     *
+     * The setting only switches the assistant off: the share option stays available and the browser
+     * receives no context to render the AI card with.
+     */
+    public function test_state_reports_no_assistant_when_the_assistant_setting_is_off(): void {
+        $this->resetAfterTest();
+
+        tenant_config::set('organizationid', '98765', tenancy::get_tenant_id());
+        tenant_config::set('aiassistant_enabled', 0, tenancy::get_tenant_id());
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
+
+        $fixture = $this->create_certificate_fixture();
+        $this->setUser($fixture->student);
+        certificate::issue_certificate($fixture->customcert->id, $fixture->student->id);
+
+        $state = share_state::execute($fixture->cmid);
+
+        $this->assertTrue($state['hasissue']);
+        $this->assertStringStartsWith('https://www.linkedin.com/profile/add?', $state['shareurl']);
+        $this->assertFalse($state['enableai'], 'The assistant must be unavailable while its setting is off.');
+        $this->assertArrayNotHasKey('aicard', $state, 'No assistant context may travel while its setting is off.');
+    }
+
+    /**
      * MDL-E2E-002: Once mod_customcert records the issue the state carries the share URL.
      *
      * This is the state the panel reads when the user comes back from the certificate PDF, so it
@@ -297,7 +328,8 @@ final class external_share_state_test extends \externallib_advanced_testcase {
         $this->resetAfterTest();
 
         tenant_config::set('organizationid', '98765', tenancy::get_tenant_id());
-        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
+        tenant_config::set('aiassistant_enabled', 1, tenancy::get_tenant_id());
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
 
         $fixture = $this->create_certificate_fixture();
         $this->setUser($fixture->student);
@@ -330,7 +362,8 @@ final class external_share_state_test extends \externallib_advanced_testcase {
         $this->resetAfterTest();
 
         tenant_config::set('organizationid', '', tenancy::get_tenant_id());
-        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
+        tenant_config::set('aiassistant_enabled', 1, tenancy::get_tenant_id());
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
 
         $fixture = $this->create_certificate_fixture();
         $this->setUser($fixture->student);
@@ -376,29 +409,51 @@ final class external_share_state_test extends \externallib_advanced_testcase {
     }
 
     /**
-     * MDL-E2E-002: The assistant availability follows the global setting.
+     * MDL-E2E-002: Disabling the plugin in the Datacurso AI provider disables the whole panel.
+     *
+     * The state is never reported while the plugin is disabled: the function stops with the
+     * provider message, so the panel cannot enable itself and no assistant context reaches the
+     * browser.
      */
-    public function test_state_reports_the_assistant_as_unavailable_when_the_ai_is_disabled(): void {
+    public function test_state_is_rejected_when_the_plugin_is_disabled_in_the_provider(): void {
+        $this->require_ai_provider();
         $this->resetAfterTest();
 
         tenant_config::set('organizationid', '98765', tenancy::get_tenant_id());
-        tenant_config::set('enableai', 0, tenancy::get_tenant_id());
+        \aiprovider_datacurso\local\plugin_settings::set_enabled('local_socialcert', false);
 
         $fixture = $this->create_certificate_fixture();
         $this->setUser($fixture->student);
 
         certificate::issue_certificate($fixture->customcert->id, $fixture->student->id);
 
-        $state = share_state::execute($fixture->cmid);
+        try {
+            share_state::execute($fixture->cmid);
+            $this->fail('The state must not be reported while the plugin is disabled.');
+        } catch (\moodle_exception $e) {
+            $this->assertSame('plugindisabled', $e->errorcode);
+            $this->assertSame('aiprovider_datacurso', $e->module);
+        }
+    }
 
-        $this->assertTrue($state['hasissue']);
-        $this->assertNotSame('', $state['shareurl']);
-        $this->assertFalse($state['enableai']);
-        $this->assertArrayNotHasKey(
-            'aicard',
-            $state,
-            'With the AI disabled globally no assistant context may reach the browser.'
-        );
+    /**
+     * MDL-E2E-002: A site administrator is pointed to the provider plugins list while disabled.
+     */
+    public function test_state_rejection_names_the_provider_plugins_list_for_an_administrator(): void {
+        $this->require_ai_provider();
+        $this->resetAfterTest();
+
+        \aiprovider_datacurso\local\plugin_settings::set_enabled('local_socialcert', false);
+
+        $fixture = $this->create_certificate_fixture();
+        $this->setAdminUser();
+
+        try {
+            share_state::execute($fixture->cmid);
+            $this->fail('The state must not be reported while the plugin is disabled.');
+        } catch (\moodle_exception $e) {
+            $this->assertSame('plugindisabled_admin', $e->errorcode);
+        }
     }
 
     /**
@@ -418,7 +473,8 @@ final class external_share_state_test extends \externallib_advanced_testcase {
 
         tenant_config::set('organizationid', '98765', tenancy::get_tenant_id());
         tenant_config::set('organizationname', 'Buen Data', tenancy::get_tenant_id());
-        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
+        tenant_config::set('aiassistant_enabled', 1, tenancy::get_tenant_id());
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
 
         $fixture = $this->create_certificate_fixture();
         $student = $this->getDataGenerator()->create_user([
@@ -471,7 +527,8 @@ final class external_share_state_test extends \externallib_advanced_testcase {
         $this->resetAfterTest();
 
         tenant_config::set('organizationid', '98765', tenancy::get_tenant_id());
-        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
+        tenant_config::set('aiassistant_enabled', 1, tenancy::get_tenant_id());
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
 
         $fixture = $this->create_certificate_fixture('Diseño Gráfico Avanzado');
         $this->setUser($fixture->student);
@@ -498,7 +555,8 @@ final class external_share_state_test extends \externallib_advanced_testcase {
         $this->resetAfterTest();
 
         tenant_config::set('organizationid', '98765', tenancy::get_tenant_id());
-        tenant_config::set('enableai', 1, tenancy::get_tenant_id());
+        tenant_config::set('aiassistant_enabled', 1, tenancy::get_tenant_id());
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
 
         $fixture = $this->create_certificate_fixture();
         $this->setUser($fixture->student);

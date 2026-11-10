@@ -58,9 +58,11 @@ $settings->add(new \local_socialcert\admin\setting_configtext(
     PARAM_RAW_TRIMMED
 ));
 
+// Only hides the AI assistant card for the tenant; the share option stays. Not named 'enableai' on
+// purpose: the Datacurso AI provider reads that former setting as the legacy state of the whole plugin.
 $settings->add(new \local_socialcert\admin\setting_configcheckbox(
-    'local_socialcert/enableai',
-    get_string('enableai', 'local_socialcert'),
-    get_string('enableai_desc', 'local_socialcert'),
+    'local_socialcert/aiassistant_enabled',
+    get_string('aiassistant_enabled', 'local_socialcert'),
+    get_string('aiassistant_enabled_desc', 'local_socialcert'),
     1
 ));

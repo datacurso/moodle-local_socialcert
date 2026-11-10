@@ -35,6 +35,9 @@ class tenant_migration {
     private const SETTINGS = [
         'organizationid',
         'organizationname',
+        // Former name of the AI assistant switch. It is kept here so a site upgrading from before
+        // 2026100602 hands its value to the default tenant; the 2026110902 upgrade step then renames
+        // every tenant value to aiassistant_enabled.
         'enableai',
     ];
 
