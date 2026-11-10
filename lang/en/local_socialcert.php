@@ -83,6 +83,7 @@ $string['privacy:metadata:linkedin:issuedate'] = 'The month and year the certifi
 $string['privacy:metadata:linkedin:organizationid'] = 'The numeric LinkedIn organization identifier configured by the site administrator.';
 $string['privacy:metadata:linkedin:verificationlink'] = 'The public verification link of the certificate.';
 $string['providerlimit_active'] = 'The Datacurso AI Provider limits this plugin to {$a->limit} credits per user every {$a->window}.';
+$string['providerlimit_assistantoff'] = 'The AI assistant is off, so no generation can spend AI credits. Enable the per plugin usage limit of the Datacurso AI Provider before turning the assistant on.';
 $string['providerlimit_configure'] = 'Configure the provider usage limit';
 $string['providerlimit_missing'] = 'The usage limit of the Datacurso AI Provider is off for this plugin. Every generation spends AI credits of the licence, the plugin applies no limit of its own, and a user with an issued certificate can call the generation web service directly and repeatedly. Enable the per plugin usage limit of the provider before enabling the assistant.';
 $string['providerlimit_missing_title'] = 'AI credits are not protected';

@@ -83,6 +83,7 @@ $string['privacy:metadata:linkedin:issuedate'] = 'Bulan dan tahun penerbitan ser
 $string['privacy:metadata:linkedin:organizationid'] = 'Pengenal numerik organisasi LinkedIn yang dikonfigurasi oleh administrator situs.';
 $string['privacy:metadata:linkedin:verificationlink'] = 'Tautan verifikasi publik dari sertifikat.';
 $string['providerlimit_active'] = 'Penyedia AI Datacurso membatasi plugin ini hingga {$a->limit} kredit per pengguna setiap {$a->window}.';
+$string['providerlimit_assistantoff'] = 'Asisten AI dinonaktifkan, sehingga tidak ada pembuatan teks yang dapat menghabiskan kredit AI. Aktifkan batas penggunaan per plugin dari Penyedia AI Datacurso sebelum mengaktifkan asisten.';
 $string['providerlimit_configure'] = 'Konfigurasikan batas penggunaan penyedia';
 $string['providerlimit_missing'] = 'Batas penggunaan Penyedia AI Datacurso dinonaktifkan untuk plugin ini. Setiap pembuatan teks menghabiskan kredit AI lisensi, plugin ini tidak menerapkan batas sendiri, dan pengguna dengan sertifikat yang telah diterbitkan dapat memanggil layanan web pembuatan teks secara langsung dan berulang. Aktifkan batas penggunaan per plugin dari penyedia sebelum mengaktifkan asisten.';
 $string['providerlimit_missing_title'] = 'Kredit AI tidak terlindungi';

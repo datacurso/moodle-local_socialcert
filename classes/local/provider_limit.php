@@ -59,6 +59,24 @@ final class provider_limit {
     }
 
     /**
+     * Tells whether the assistant can spend credits at all on this site.
+     *
+     * Two switches must be on: the plugin's own assistant switch, read through the same helper the
+     * web service uses (an unset value counts as on), and the switch of the plugin in the provider.
+     * Without the provider class nothing can be generated, so the answer is false.
+     *
+     * @return bool
+     */
+    public static function is_assistant_on(): bool {
+        if (!class_exists(\aiprovider_datacurso\local\plugin_settings::class)) {
+            return false;
+        }
+
+        return ai_assistant::is_enabled()
+            && \aiprovider_datacurso\local\plugin_settings::is_enabled(self::SERVICE);
+    }
+
+    /**
      * Returns the limit as the placeholders of the strings that name it.
      *
      * @param array{limit: int, windowseconds: int} $limit An active limit, as returned by get().

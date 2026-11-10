@@ -6,7 +6,7 @@ This version removes the local usage limit of the AI assistant that 1.1.7 added 
 
 ### 🚀 Added
 
-- Notice **Usage limit of the AI assistant** in the plugin settings page, right above the **Enable AI assistant** switch: red, with a button to the provider configuration, while the per plugin usage limit of the Datacurso AI Provider is off for this plugin; green with the limit and its window while it is on. It reads the provider limit on every load of the page (`tests/plugin_compliance_test.php`)
+- Notice **Usage limit of the AI assistant** in the plugin settings page, right above the **Enable AI assistant** switch: red, with a button to the provider configuration, while the assistant is on and the per plugin usage limit of the Datacurso AI Provider is off for this plugin; green with the limit and its window while both are on; an informational note while the assistant is off. It reads the provider state on every load of the page (`tests/plugin_compliance_test.php`)
 - Security check **Usage limit of the Share Certificate AI assistant** in Site administration > Reports > Security checks: error while the assistant is on and the provider limit is off, OK otherwise, with a link to the provider configuration (`tests/check/providerratelimit_test.php`)
 
 ### 🔧 Changed

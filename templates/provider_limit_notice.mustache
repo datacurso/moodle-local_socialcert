@@ -20,9 +20,10 @@
     Alert of the plugin settings page about the usage limit of the Datacurso AI provider.
 
     The plugin applies no usage limit of its own, so the alert is red, with a button to the provider
-    configuration, while the provider limit is off for this plugin, and green with the limit while
-    it is on. It is rendered by local_socialcert\local\admin\provider_limit_notice on every load of
-    the settings page.
+    configuration, while the assistant is on and the provider limit is off for this plugin; green
+    with the limit while both are on; and an informational note while the assistant is off. It is
+    rendered by local_socialcert\local\admin\provider_limit_notice on every load of the settings
+    page.
 
     Classes required for JS:
     * none
@@ -31,6 +32,7 @@
     * none
 
     Context variables required for this template:
+    * assistantoff bool - True when the assistant cannot spend credits (plugin or provider switch off).
     * active bool - True when the provider limit is on for this plugin.
     * limit int - Credits allowed per user and window, only when active.
     * window string - Localized length of the window (e.g. "1 hour"), only when active.
@@ -38,11 +40,24 @@
 
     Example context (json):
     {
-        "active": false,
+        "assistantoff": false,
+        "active": true,
+        "limit": 3,
+        "window": "1 hour",
         "configurl": "https://example.com/ai/provider/datacurso/admin/report_sections.php?tab=config"
     }
 }}
 <div class="local_socialcert-provider_limit_notice">
+    {{#assistantoff}}
+    <div class="alert alert-info d-flex align-items-start gap-2 mb-0" role="status">
+        {{#pix}} i/info, core {{/pix}}
+        <div>
+            <p class="mb-2">{{#str}} providerlimit_assistantoff, local_socialcert {{/str}}</p>
+            <a class="btn btn-outline-secondary btn-sm" href="{{configurl}}">{{#str}} providerlimit_configure, local_socialcert {{/str}}</a>
+        </div>
+    </div>
+    {{/assistantoff}}
+    {{^assistantoff}}
     {{#active}}
     <div class="alert alert-success d-flex align-items-start gap-2 mb-0" role="status">
         {{#pix}} i/valid, core {{/pix}}
@@ -62,4 +77,5 @@
         </div>
     </div>
     {{/active}}
+    {{/assistantoff}}
 </div>

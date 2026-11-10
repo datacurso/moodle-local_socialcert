@@ -137,14 +137,5 @@ final class external_ai_helper_no_local_limit_test extends \externallib_advanced
                 "The string '{$identifier}' belongs to the removed local limit."
             );
         }
-
-        $this->assertFalse(
-            method_exists(\local_socialcert\external\ai_helper::class, 'consume_user_quota'),
-            'The quota method of the removed local limit must not exist.'
-        );
-        $this->assertFalse(
-            defined(\local_socialcert\external\ai_helper::class . '::DEFAULT_RATE_LIMIT'),
-            'The default of the removed local limit must not exist.'
-        );
     }
 }

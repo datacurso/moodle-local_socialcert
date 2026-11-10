@@ -122,6 +122,28 @@ final class providerratelimit_test extends \advanced_testcase {
     }
 
     /**
+     * A site that never stored the assistant switch has it on (the plugin's own rule), so the check
+     * must not read an unset value as "off".
+     */
+    public function test_error_when_the_assistant_setting_was_never_stored(): void {
+        unset_config('aiassistant_enabled', 'local_socialcert');
+        $this->set_provider_limit(0);
+
+        $this->assertSame(result::ERROR, (new providerratelimit())->get_result()->get_status());
+    }
+
+    /**
+     * The provider disabled the whole plugin: no generation can happen, whatever the switch says.
+     */
+    public function test_ok_when_the_provider_disabled_the_plugin(): void {
+        set_config('aiassistant_enabled', 1, 'local_socialcert');
+        set_config('plugin_enabled_local_socialcert', 0, 'aiprovider_datacurso');
+        $this->set_provider_limit(0);
+
+        $this->assertSame(result::OK, (new providerratelimit())->get_result()->get_status());
+    }
+
+    /**
      * Assistant off: no generation can spend credits, whatever the provider limit is.
      */
     public function test_ok_when_the_assistant_is_off(): void {

@@ -23,8 +23,10 @@ use local_socialcert\local\provider_limit;
  *
  * It is a description, not a stored setting: it renders the current state of the provider limit
  * every time the page is shown, red with a link to the provider configuration when the limit is
- * off and green with the limit when it is on. It sits right above the switch of the assistant, so
- * an administrator cannot enable the assistant without seeing it.
+ * off, green with the limit when it is on, and an informational note while the assistant is off
+ * (no credit can be spent, so neither alarm nor approval applies). It sits right above the switch
+ * of the assistant, so an administrator cannot enable the assistant without seeing it. The
+ * security check of the plugin reports the same three states.
  *
  * @package    local_socialcert
  * @copyright  2026 Datacurso
@@ -54,6 +56,7 @@ class provider_limit_notice extends \admin_setting_description {
 
         $limit = provider_limit::get();
         $alert = [
+            'assistantoff' => !provider_limit::is_assistant_on(),
             'active' => $limit !== null,
             'configurl' => provider_limit::get_configuration_url()->out(false),
         ];

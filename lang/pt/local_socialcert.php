@@ -83,6 +83,7 @@ $string['privacy:metadata:linkedin:issuedate'] = 'O mês e o ano de emissão do 
 $string['privacy:metadata:linkedin:organizationid'] = 'O identificador numérico da organização no LinkedIn configurado pelo administrador do site.';
 $string['privacy:metadata:linkedin:verificationlink'] = 'O link público de verificação do certificado.';
 $string['providerlimit_active'] = 'O Provedor de IA Datacurso limita este plugin a {$a->limit} créditos por utilizador a cada {$a->window}.';
+$string['providerlimit_assistantoff'] = 'O assistente de IA está desativado, por isso nenhuma geração pode consumir créditos de IA. Ative o limite de uso por plugin do Provedor de IA Datacurso antes de ativar o assistente.';
 $string['providerlimit_configure'] = 'Configurar o limite de uso do provedor';
 $string['providerlimit_missing'] = 'O limite de uso do Provedor de IA Datacurso está desativado para este plugin. Cada geração consome créditos de IA da licença, o plugin não aplica nenhum limite próprio e um utilizador com um certificado emitido pode chamar o serviço web de geração de forma direta e repetida. Ative o limite de uso por plugin do provedor antes de ativar o assistente.';
 $string['providerlimit_missing_title'] = 'Os créditos de IA não estão protegidos';

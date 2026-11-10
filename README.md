@@ -69,7 +69,7 @@ The plugin does not modify *Custom certificate*: it adds its own panel at the en
    * **Usage limit of the AI assistant** — a notice, not a setting, shown right above the assistant switch.
 
      * The plugin applies **no usage limit of its own**: every generation spends AI credits of the DataCurso AI Provider licence, and a user with an issued certificate can call the generation web service directly and repeatedly. The only ceiling is the **per plugin usage limit of the DataCurso AI Provider** (`aiprovider_datacurso`), which the provider enforces per user and which is **off until an administrator enables it**.
-     * The notice is red, with a button to the provider configuration (**Site administration → Reports → General report Datacurso AI**, tab **Configuration**), while that limit is off for this plugin, and green with the limit and its window while it is on. It is evaluated every time the page is shown.
+     * The notice is red, with a button to the provider configuration (**Site administration → Reports → General report Datacurso AI**, tab **Configuration**), while the assistant is on and that limit is off for this plugin; green with the limit and its window while both are on; and an informational note while the assistant is off. It is evaluated every time the page is shown.
      * The same state is reported in **Site administration → Reports → Security checks** as *Usage limit of the Share Certificate AI assistant*: an error while the assistant is on and the provider limit is off, OK otherwise.
    * **Enable AI assistant** (`aiassistant_enabled`) — *enabled by default*.
 

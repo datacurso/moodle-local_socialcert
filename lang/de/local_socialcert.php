@@ -83,6 +83,7 @@ $string['privacy:metadata:linkedin:issuedate'] = 'Monat und Jahr der Ausstellung
 $string['privacy:metadata:linkedin:organizationid'] = 'Die numerische LinkedIn-Organisations-ID, die von der Administration der Website konfiguriert wurde.';
 $string['privacy:metadata:linkedin:verificationlink'] = 'Der öffentliche Verifizierungslink des Zertifikats.';
 $string['providerlimit_active'] = 'Der Datacurso KI-Provider begrenzt dieses Plugin auf {$a->limit} Guthabenpunkte pro Nutzer je {$a->window}.';
+$string['providerlimit_assistantoff'] = 'Der KI-Assistent ist deaktiviert, daher kann keine Generierung KI-Guthaben verbrauchen. Aktivieren Sie das Nutzungslimit pro Plugin des Datacurso KI-Providers, bevor Sie den Assistenten einschalten.';
 $string['providerlimit_configure'] = 'Nutzungslimit des Providers konfigurieren';
 $string['providerlimit_missing'] = 'Das Nutzungslimit des Datacurso KI-Providers ist für dieses Plugin deaktiviert. Jede Generierung verbraucht KI-Guthaben der Lizenz, das Plugin wendet kein eigenes Limit an, und ein Nutzer mit ausgestelltem Zertifikat kann den Webservice zur Generierung direkt und wiederholt aufrufen. Aktivieren Sie das Nutzungslimit pro Plugin des Providers, bevor Sie den Assistenten aktivieren.';
 $string['providerlimit_missing_title'] = 'Das KI-Guthaben ist nicht geschützt';

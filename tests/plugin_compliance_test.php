@@ -78,24 +78,53 @@ final class plugin_compliance_test extends \advanced_testcase {
         $setting = $this->index_settings($page)['local_socialcert/providerlimit_notice'];
         $this->assertInstanceOf(\admin_setting_description::class, $setting);
 
+        // Assistant on, provider limit off: red, with the warning text and the way to the provider.
+        set_config('aiassistant_enabled', 1, 'local_socialcert');
         set_config('ratelimit_local_socialcert_enable', 0, 'aiprovider_datacurso');
         $html = $setting->output_html('');
         $this->assertStringContainsString('alert-danger', $html, 'Limit off: a red alert.');
+        $this->assertStringContainsString(get_string('providerlimit_missing_title', 'local_socialcert'), $html);
+        $this->assertStringContainsString(get_string('providerlimit_missing', 'local_socialcert'), $html);
         $this->assertStringContainsString('/ai/provider/datacurso/admin/report_sections.php', $html);
         $this->assertStringContainsString('tab=config', $html);
         $this->assertStringNotContainsString('alert-success', $html);
+        $this->assertStringNotContainsString('alert-info', $html);
 
+        // Assistant on, provider limit on: green, naming the limit and the window.
         set_config('ratelimit_local_socialcert_enable', 1, 'aiprovider_datacurso');
-        set_config('ratelimit_local_socialcert_limit', 3, 'aiprovider_datacurso');
-        set_config('ratelimit_local_socialcert_window', json_encode(['value' => 1, 'unit' => 'hours']), 'aiprovider_datacurso');
+        set_config('ratelimit_local_socialcert_limit', 7, 'aiprovider_datacurso');
+        set_config('ratelimit_local_socialcert_window', json_encode(['value' => 2, 'unit' => 'hours']), 'aiprovider_datacurso');
         $html = $setting->output_html('');
         $this->assertStringContainsString('alert-success', $html, 'Limit on: a green alert.');
-        $this->assertStringContainsString('3', $html);
-        $this->assertStringContainsString(format_time(HOURSECS), $html);
+        $expected = get_string(
+            'providerlimit_active',
+            'local_socialcert',
+            \local_socialcert\local\provider_limit::describe(['limit' => 7, 'windowseconds' => 2 * HOURSECS])
+        );
+        $this->assertStringContainsString('7', $expected);
+        $this->assertStringContainsString($expected, $html);
         $this->assertStringNotContainsString('alert-danger', $html);
 
-        // The switch itself names the dependency on the provider limit.
-        $this->assertStringContainsString('limit', get_string('aiassistant_enabled_desc', 'local_socialcert'));
+        // Assistant off: no credit can be spent, so neither alarm nor approval, an informational note.
+        set_config('aiassistant_enabled', 0, 'local_socialcert');
+        set_config('ratelimit_local_socialcert_enable', 0, 'aiprovider_datacurso');
+        $html = $setting->output_html('');
+        $this->assertStringContainsString('alert-info', $html, 'Assistant off: an informational note.');
+        $this->assertStringContainsString(get_string('providerlimit_assistantoff', 'local_socialcert'), $html);
+        $this->assertStringNotContainsString('alert-danger', $html);
+        $this->assertStringNotContainsString('alert-success', $html);
+
+        // The switch itself names the credit cost and the dependency on the provider limit, in every pack.
+        $english = get_string('aiassistant_enabled_desc', 'local_socialcert');
+        $this->assertStringContainsString('limit', $english);
+        $this->assertStringContainsString('credits', $english);
+        foreach (self::LANGUAGES as $lang) {
+            $this->assertStringContainsString(
+                'Datacurso',
+                get_string_manager()->get_string('aiassistant_enabled_desc', 'local_socialcert', null, $lang),
+                "The '{$lang}' description of the switch must name the provider."
+            );
+        }
     }
 
     /**

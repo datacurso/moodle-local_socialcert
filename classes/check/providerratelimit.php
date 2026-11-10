@@ -61,9 +61,7 @@ class providerratelimit extends check {
     public function get_result(): result {
         $details = get_string('checkproviderratelimit_details', 'local_socialcert');
 
-        $assistanton = !empty(get_config('local_socialcert', 'aiassistant_enabled'))
-            && \aiprovider_datacurso\local\plugin_settings::is_enabled('local_socialcert');
-        if (!$assistanton) {
+        if (!provider_limit::is_assistant_on()) {
             return new result(result::OK, get_string('checkproviderratelimit_assistantoff', 'local_socialcert'), $details);
         }
 
