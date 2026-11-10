@@ -55,12 +55,4 @@ if ($hassiteconfig) {
         get_string('aiassistant_enabled_desc', 'local_socialcert'),
         1
     ));
-
-    $settings->add(new admin_setting_configtext(
-        'local_socialcert/airatelimit',
-        get_string('airatelimit', 'local_socialcert'),
-        get_string('airatelimit_desc', 'local_socialcert'),
-        10,
-        PARAM_INT
-    ));
 }

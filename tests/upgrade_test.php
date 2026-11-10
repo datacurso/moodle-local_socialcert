@@ -53,7 +53,7 @@ final class upgrade_test extends \advanced_testcase {
         $this->assertTrue(xmldb_local_socialcert_upgrade(2026103000));
 
         $this->assertFalse(get_config('local_socialcert', 'enableai'));
-        $this->assertSame('2026110500', get_config('local_socialcert', 'version'));
+        $this->assertSame('2026111000', get_config('local_socialcert', 'version'));
     }
 
     /**
@@ -70,7 +70,7 @@ final class upgrade_test extends \advanced_testcase {
         $this->assertTrue(xmldb_local_socialcert_upgrade(2026110400));
 
         $this->assertSame('1', get_config('local_socialcert', 'aiassistant_enabled'));
-        $this->assertSame('2026110500', get_config('local_socialcert', 'version'));
+        $this->assertSame('2026111000', get_config('local_socialcert', 'version'));
     }
 
     /**
@@ -87,5 +87,23 @@ final class upgrade_test extends \advanced_testcase {
         $this->assertTrue(xmldb_local_socialcert_upgrade(2026110400));
 
         $this->assertSame('0', get_config('local_socialcert', 'aiassistant_enabled'));
+    }
+
+    /**
+     * 1.1.8: the upgrade deletes the stored value of the removed "AI requests limit per user per hour"
+     * setting; the usage limit is the per plugin limit of the Datacurso AI provider.
+     *
+     * @return void
+     */
+    public function test_upgrade_removes_the_former_airatelimit_setting(): void {
+        $this->resetAfterTest();
+
+        set_config('airatelimit', '10', 'local_socialcert');
+        set_config('version', 2026110900, 'local_socialcert');
+
+        $this->assertTrue(xmldb_local_socialcert_upgrade(2026110900));
+
+        $this->assertFalse(get_config('local_socialcert', 'airatelimit'));
+        $this->assertSame('2026111000', get_config('local_socialcert', 'version'));
     }
 }

@@ -70,20 +70,6 @@ class ai_helper extends external_api {
     public const TRUSTED_MESSAGE_COMPONENTS = ['aiprovider_datacurso', 'local_socialcert'];
 
     /**
-     * Generations per user and hour allowed when the airatelimit setting is missing or not positive.
-     *
-     * @var int
-     */
-    public const DEFAULT_RATE_LIMIT = 10;
-
-    /**
-     * Seconds to wait for the lock of a user before the call is refused.
-     *
-     * @var int
-     */
-    private const LOCK_TIMEOUT = 5;
-
-    /**
      * Defines the parameters accepted by the external function.
      *
      * The browser only names the activity and the social network. The inputs of the prompt
@@ -176,10 +162,6 @@ class ai_helper extends external_api {
                 throw new \moodle_exception('nocertificateissued', 'local_socialcert');
             }
 
-            // The quota is spent only here, once every rule above has passed, so a denied call
-            // costs nothing, and always before the provider is contacted.
-            self::consume_user_quota((int) $USER->id);
-
             // The inputs of the prompt come from the same source the assistant card renders them
             // from, so the text the service receives is always the one the panel showed.
             $body = main_panel::get_ai_prompt_inputs($params['cmid'], (int) $USER->id);
@@ -227,47 +209,6 @@ class ai_helper extends external_api {
             }
 
             return $result;
-        }
-    }
-
-    /**
-     * Spends one unit of the hourly quota of the user, or refuses the call.
-     *
-     * The limiter of core_ai reads and writes its counter in two steps, so concurrent calls of one
-     * user could all read the same count. The check therefore runs under a lock per user; when the
-     * lock cannot be obtained the call is refused (fail closed), because letting it through would
-     * reopen the hole. Every call that passed the business rules counts, even when it fails later, while
-     * the client is built or at the provider: the core API has no refund, and building the client
-     * already contacts the licence server, so moving the check after it would leave that call unlimited.
-     *
-     * @param int $userid User making the call.
-     * @return void
-     * @throws \moodle_exception With errorcode error_ratelimit_exceeded when the quota is spent, or
-     *                           error_ratelimit_busy when the lock of the user cannot be obtained.
-     */
-    private static function consume_user_quota(int $userid): void {
-        $limit = (int) get_config('local_socialcert', 'airatelimit');
-        if ($limit <= 0) {
-            $limit = self::DEFAULT_RATE_LIMIT;
-        }
-
-        $factory = \core\lock\lock_config::get_lock_factory('local_socialcert_ai_ratelimit');
-        $lock = $factory->get_lock("user_{$userid}", self::LOCK_TIMEOUT);
-        if (!$lock) {
-            // Fail closed, but with a code of its own: the quota was not spent, so the user must not
-            // be told it was.
-            throw new \moodle_exception('error_ratelimit_busy', 'local_socialcert');
-        }
-
-        try {
-            $limiter = \core\di::get(\core_ai\rate_limiter::class);
-            $allowed = $limiter->check_user_rate_limit('local_socialcert', $limit, $userid);
-        } finally {
-            $lock->release();
-        }
-
-        if (!$allowed) {
-            throw new \moodle_exception('error_ratelimit_exceeded', 'local_socialcert', '', $limit);
         }
     }
 

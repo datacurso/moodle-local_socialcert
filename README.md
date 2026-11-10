@@ -69,11 +69,6 @@ The plugin does not modify *Custom certificate*: it adds its own panel at the en
    * **Enable AI assistant** (`aiassistant_enabled`) — *enabled by default*.
 
      * Shows the AI card that writes the LinkedIn post. When off, only the **Share on LinkedIn** option is shown and the AI service is never contacted.
-   * **AI requests limit per user per hour** (`airatelimit`) — default `10`.
-
-     * Maximum number of generations one user can request per hour. Past it, the call is refused before the AI service is contacted, and the card tells the learner the limit and that it resets within the hour. A missing, zero or negative value falls back to 10.
-     * The count uses the user quota of the Moodle AI subsystem (fixed one hour window). Every call that passes the activity checks counts toward the hourly quota, even when it fails afterwards (for instance a missing licence key, an unreachable service or an error of the provider).
-     * Also enable the usage limit of the DataCurso AI Provider (`aiprovider_datacurso`) before enabling the assistant, so the provider enforces a ceiling of its own.
 4. Click **Save changes**.
 
 ![Plugin settings](./_docs/images/local_socialcert_settings.png)
