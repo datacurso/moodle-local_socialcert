@@ -16,6 +16,7 @@ This version removes the local usage limit of the AI assistant that 1.1.7 added 
 ### 🗑️ Removed
 
 - SOCIALCERT-SEC-002: the per user hourly limit of the web service `local_socialcert_get_ai_response` added in 1.1.7. Every call that passes the business checks of the function reaches the provider; the setting **AI requests limit per user per hour** (`airatelimit`) is removed from the settings page and deleted from the stored configuration on upgrade, together with the strings `airatelimit`, `airatelimit_desc`, `error_ratelimit_busy` and `error_ratelimit_exceeded`. A test pins that consecutive calls of one user are not refused by the plugin (`tests/external_ai_helper_no_local_limit_test.php`); the limit test of 1.1.7 is deleted. The message of the provider limit is still shown in the assistant card
+- The `.github` directory, with the GitHub Actions CI workflow: continuous integration runs on Jenkins, the only status check required to merge into `main`. The workflow guard test (`tests/ci/workflow_security_test.php`) stays and skips its file checks while no workflow exists
 
 ## [1.1.7] - 2026-11-09
 
