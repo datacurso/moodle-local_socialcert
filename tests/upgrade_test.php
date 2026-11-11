@@ -53,7 +53,7 @@ final class upgrade_test extends \advanced_testcase {
         $this->assertTrue(xmldb_local_socialcert_upgrade(2026103000));
 
         $this->assertFalse(get_config('local_socialcert', 'enableai'));
-        $this->assertSame('2026111000', get_config('local_socialcert', 'version'));
+        $this->assertSame('2026111100', get_config('local_socialcert', 'version'));
     }
 
     /**
@@ -70,7 +70,7 @@ final class upgrade_test extends \advanced_testcase {
         $this->assertTrue(xmldb_local_socialcert_upgrade(2026110400));
 
         $this->assertSame('1', get_config('local_socialcert', 'aiassistant_enabled'));
-        $this->assertSame('2026111000', get_config('local_socialcert', 'version'));
+        $this->assertSame('2026111100', get_config('local_socialcert', 'version'));
     }
 
     /**
@@ -104,6 +104,6 @@ final class upgrade_test extends \advanced_testcase {
         $this->assertTrue(xmldb_local_socialcert_upgrade(2026110900));
 
         $this->assertFalse(get_config('local_socialcert', 'airatelimit'));
-        $this->assertSame('2026111000', get_config('local_socialcert', 'version'));
+        $this->assertSame('2026111100', get_config('local_socialcert', 'version'));
     }
 }
