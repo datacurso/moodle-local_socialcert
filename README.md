@@ -66,14 +66,15 @@ The plugin does not modify *Custom certificate*: it adds its own panel at the en
 
      * Used only as context for the AI assistant when it drafts the post. It is **not** sent to LinkedIn: LinkedIn resolves the organization from the ID above.
      * Enter the **exact name as it appears on LinkedIn** so the drafted text matches the page.
+   * **Usage limit of the AI assistant** — a notice, not a setting, shown right above the assistant switch.
+
+     * The plugin applies **no usage limit of its own**: every generation spends AI credits of the DataCurso AI Provider licence, and a user with an issued certificate can call the generation web service directly and repeatedly. The only ceiling is the **per plugin usage limit of the DataCurso AI Provider** (`aiprovider_datacurso`), which the provider enforces per user and which is **off until an administrator enables it**.
+     * The notice is red, with a button to the provider configuration (**Site administration → Reports → General report Datacurso AI**, tab **Configuration**), while the assistant is on and that limit is off for this plugin; green with the limit and its window while both are on; and an informational note while the assistant is off. It is evaluated every time the page is shown.
+     * The same state is reported in **Site administration → Reports → Security checks** as *Usage limit of the Share Certificate AI assistant*: an error while the assistant is on and the provider limit is off, OK otherwise.
    * **Enable AI assistant** (`aiassistant_enabled`) — *enabled by default*.
 
      * Shows the AI card that writes the LinkedIn post. When off, only the **Share on LinkedIn** option is shown and the AI service is never contacted.
-   * **AI requests limit per user per hour** (`airatelimit`) — default `10`.
-
-     * Maximum number of generations one user can request per hour. Past it, the call is refused before the AI service is contacted, and the card tells the learner the limit and that it resets within the hour. A missing, zero or negative value falls back to 10.
-     * The count uses the user quota of the Moodle AI subsystem (fixed one hour window). Every call that passes the activity checks counts toward the hourly quota, even when it fails afterwards (for instance a missing licence key, an unreachable service or an error of the provider).
-     * Also enable the usage limit of the DataCurso AI Provider (`aiprovider_datacurso`) before enabling the assistant, so the provider enforces a ceiling of its own.
+     * Enable the provider usage limit described above before turning the assistant on.
 4. Click **Save changes**.
 
 ![Plugin settings](./_docs/images/local_socialcert_settings.png)
@@ -155,7 +156,9 @@ The plugin never publishes on behalf of the learner: it prefills the official Li
 
 4. Open LinkedIn, **paste** the message into your post, adjust it if you want, and publish.
 
-Each generation consumes credits of the DataCurso AI Provider licence. When the licence has no credits left, is not authorised, or the consumption limit has been reached, the card explains which of those happened instead of showing a generic error.
+Each generation consumes credits of the DataCurso AI Provider licence. When the licence has no credits left, is not authorised, or the usage limit of the provider has been reached, the card explains which of those happened instead of showing a generic error.
+
+The plugin itself does not limit how many generations a user may request: that ceiling is the per plugin usage limit of the DataCurso AI Provider, enforced by the provider per user and off by default. See **Plugin configuration** above for the notice and the security check that report whether it is enabled.
 
 ---
 

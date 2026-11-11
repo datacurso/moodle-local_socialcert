@@ -1,0 +1,81 @@
+{{!
+    This file is part of Moodle - https://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_socialcert/provider_limit_notice
+
+    Alert of the plugin settings page about the usage limit of the Datacurso AI provider.
+
+    The plugin applies no usage limit of its own, so the alert is red, with a button to the provider
+    configuration, while the assistant is on and the provider limit is off for this plugin; green
+    with the limit while both are on; and an informational note while the assistant is off. It is
+    rendered by local_socialcert\local\admin\provider_limit_notice on every load of the settings
+    page.
+
+    Classes required for JS:
+    * none
+
+    Data attributes required for JS:
+    * none
+
+    Context variables required for this template:
+    * assistantoff bool - True when the assistant cannot spend credits (plugin or provider switch off).
+    * active bool - True when the provider limit is on for this plugin.
+    * limit int - Credits allowed per user and window, only when active.
+    * window string - Localized length of the window (e.g. "1 hour"), only when active.
+    * configurl string - URL of the provider page where the limit is configured.
+
+    Example context (json):
+    {
+        "assistantoff": false,
+        "active": true,
+        "limit": 3,
+        "window": "1 hour",
+        "configurl": "https://example.com/ai/provider/datacurso/admin/report_sections.php?tab=config"
+    }
+}}
+<div class="local_socialcert-provider_limit_notice">
+    {{#assistantoff}}
+    <div class="alert alert-info d-flex align-items-start gap-2 mb-0" role="status">
+        {{#pix}} i/info, core {{/pix}}
+        <div>
+            <p class="mb-2">{{#str}} providerlimit_assistantoff, local_socialcert {{/str}}</p>
+            <a class="btn btn-outline-secondary btn-sm" href="{{configurl}}">{{#str}} providerlimit_configure, local_socialcert {{/str}}</a>
+        </div>
+    </div>
+    {{/assistantoff}}
+    {{^assistantoff}}
+    {{#active}}
+    <div class="alert alert-success d-flex align-items-start gap-2 mb-0" role="status">
+        {{#pix}} i/valid, core {{/pix}}
+        <div>
+            <p class="mb-2">{{#str}} providerlimit_active, local_socialcert, { "limit": {{limit}}, "window": {{#quote}}{{window}}{{/quote}} } {{/str}}</p>
+            <a class="btn btn-outline-success btn-sm" href="{{configurl}}">{{#str}} providerlimit_configure, local_socialcert {{/str}}</a>
+        </div>
+    </div>
+    {{/active}}
+    {{^active}}
+    <div class="alert alert-danger d-flex align-items-start gap-2 mb-0" role="alert">
+        {{#pix}} i/warning, core {{/pix}}
+        <div>
+            <p class="fw-bold mb-1">{{#str}} providerlimit_missing_title, local_socialcert {{/str}}</p>
+            <p class="mb-2">{{#str}} providerlimit_missing, local_socialcert {{/str}}</p>
+            <a class="btn btn-danger btn-sm" href="{{configurl}}">{{#str}} providerlimit_configure, local_socialcert {{/str}}</a>
+        </div>
+    </div>
+    {{/active}}
+    {{/assistantoff}}
+</div>

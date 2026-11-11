@@ -1,3 +1,23 @@
+## [1.1.8] - 2026-11-11
+
+**Compatibility note:** This version is compatible from **Moodle 4.5** to **Moodle 5.3**.
+
+This version removes the local usage limit of the AI assistant that 1.1.7 added for SOCIALCERT-SEC-002. The usage limit is the per plugin limit of the Datacurso AI Provider, which the provider enforces per user for every plugin that depends on it and which an administrator must enable; the plugin now reports, in its settings page and in the security checks of the site, whether that limit is on.
+
+### 🚀 Added
+
+- Notice **Usage limit of the AI assistant** in the plugin settings page, right above the **Enable AI assistant** switch: red, with a button to the provider configuration, while the assistant is on and the per plugin usage limit of the Datacurso AI Provider is off for this plugin; green with the limit and its window while both are on; an informational note while the assistant is off. It reads the provider state on every load of the page (`tests/plugin_compliance_test.php`)
+- Security check **Usage limit of the Share Certificate AI assistant** in Site administration > Reports > Security checks: error while the assistant is on and the provider limit is off, OK otherwise, with a link to the provider configuration (`tests/check/providerratelimit_test.php`)
+
+### 🔧 Changed
+
+- The description of the **Enable AI assistant** setting names the credit cost of each generation and the dependency on the provider usage limit, in the seven language packs
+
+### 🗑️ Removed
+
+- SOCIALCERT-SEC-002: the per user hourly limit of the web service `local_socialcert_get_ai_response` added in 1.1.7. Every call that passes the business checks of the function reaches the provider; the setting **AI requests limit per user per hour** (`airatelimit`) is removed from the settings page and deleted from the stored configuration on upgrade, together with the strings `airatelimit`, `airatelimit_desc`, `error_ratelimit_busy` and `error_ratelimit_exceeded`. A test pins that consecutive calls of one user are not refused by the plugin (`tests/external_ai_helper_no_local_limit_test.php`); the limit test of 1.1.7 is deleted. The message of the provider limit is still shown in the assistant card
+- The `.github` directory, with the GitHub Actions CI workflow: continuous integration runs on Jenkins, the only status check required to merge into `main`. The workflow guard test (`tests/ci/workflow_security_test.php`) stays and skips its file checks while no workflow exists
+
 ## [1.1.7] - 2026-11-09
 
 **Compatibility note:** This version is compatible from **Moodle 4.5** to **Moodle 5.3**.

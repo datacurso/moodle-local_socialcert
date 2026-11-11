@@ -176,7 +176,8 @@ final class hook_callbacks_test extends \advanced_testcase {
 
     /**
      * MDL-INT-002: the plugin adds no pages, menus or blocks of its own, so its only
-     * integration point is the hook callback declared in db/hooks.php.
+     * integration points are the hook callback declared in db/hooks.php and, since 1.1.8, the
+     * security check callback of lib.php.
      *
      * The expected number of callbacks went from two to one on purpose: the callback that declared
      * the stylesheet was registered against a hook class that does not exist in Moodle 4.5, so it
@@ -188,8 +189,14 @@ final class hook_callbacks_test extends \advanced_testcase {
 
         $plugindir = $CFG->dirroot . '/local/socialcert';
 
-        // No lib.php means no navigation or menu extension callbacks.
-        $this->assertFileDoesNotExist($plugindir . '/lib.php');
+        // The lib.php file declares the security check callback and nothing else: no navigation, menu or
+        // file serving callbacks.
+        require_once($plugindir . '/lib.php');
+        $own = array_values(array_filter(
+            get_defined_functions()['user'],
+            static fn(string $name): bool => str_starts_with($name, 'local_socialcert_')
+        ));
+        $this->assertSame(['local_socialcert_security_checks'], $own);
         // No entry point page of its own.
         $this->assertFileDoesNotExist($plugindir . '/index.php');
         // No bundled blocks.

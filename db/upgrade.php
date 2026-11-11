@@ -45,5 +45,14 @@ function xmldb_local_socialcert_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026110500, 'local', 'socialcert');
     }
 
+    if ($oldversion < 2026111100) {
+        // The per user hourly limit of the AI assistant (1.1.7) is removed: the usage limit is the
+        // per plugin limit of the Datacurso AI provider, so its stored value is deleted.
+        unset_config('airatelimit', 'local_socialcert');
+
+        // Socialcert savepoint reached.
+        upgrade_plugin_savepoint(true, 2026111100, 'local', 'socialcert');
+    }
+
     return true;
 }
