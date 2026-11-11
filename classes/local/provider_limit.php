@@ -40,7 +40,7 @@ final class provider_limit {
      * no window, or is otherwise unusable: every one of those cases means the credits are not
      * protected, so they are all reported as "no limit".
      *
-     * @return array{limit: int, windowseconds: int}|null Credits per user and window, or null.
+     * @return array|null Credits per user (key limit) and window in seconds (key windowseconds), or null.
      */
     public static function get(): ?array {
         if (!class_exists(\aiprovider_datacurso\local\ratelimiter::class)) {
@@ -79,7 +79,7 @@ final class provider_limit {
     /**
      * Returns the limit as the placeholders of the strings that name it.
      *
-     * @param array{limit: int, windowseconds: int} $limit An active limit, as returned by get().
+     * @param array $limit An active limit as returned by get(), with the keys limit and windowseconds.
      * @return \stdClass Object with limit (int) and window (localized length, e.g. "1 hour").
      */
     public static function describe(array $limit): \stdClass {
