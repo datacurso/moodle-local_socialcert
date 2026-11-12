@@ -21,6 +21,7 @@ use local_socialcert\event\ai_text_generated;
 use local_socialcert\event\certificate_shared;
 use local_socialcert\external\log_share;
 use local_socialcert\fixtures\customcert_dependency_trait;
+use local_socialcert\fixtures\provider_dependency_trait;
 use local_socialcert\output\main_panel;
 use mod_customcert\certificate;
 
@@ -29,6 +30,7 @@ defined('MOODLE_INTERNAL') || die();
 global $CFG;
 require_once($CFG->libdir . '/adminlib.php');
 require_once(__DIR__ . '/fixtures/customcert_dependency_trait.php');
+require_once(__DIR__ . '/fixtures/provider_dependency_trait.php');
 
 /**
  * Plugin level compliance tests: global settings, language packs, events and capabilities.
@@ -41,12 +43,89 @@ require_once(__DIR__ . '/fixtures/customcert_dependency_trait.php');
  */
 final class plugin_compliance_test extends \advanced_testcase {
     use customcert_dependency_trait;
+    use provider_dependency_trait;
 
     /** @var string Relative path of the plugin. */
     private const PLUGINPATH = '/local/socialcert';
 
     /** @var string[] Languages shipped by the plugin according to the documentation. */
     private const LANGUAGES = ['en', 'es', 'de', 'fr', 'pt', 'id', 'ru'];
+
+    /**
+     * The settings page warns, right above the assistant switch, whether the usage limit of the
+     * provider protects the credits: red when it is off, green with the limit when it is on.
+     *
+     * @return void
+     */
+    public function test_settings_page_warns_about_the_provider_limit(): void {
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        if (\core_component::get_component_directory('aiprovider_datacurso') === null) {
+            $this->markTestSkipped('The aiprovider_datacurso plugin is not installed on this site.');
+        }
+
+        $page = $this->get_plugin_settings_page();
+        $names = array_values(array_map(
+            static fn(\admin_setting $setting): string => $setting->plugin . '/' . $setting->name,
+            (array) $page->settings
+        ));
+        $notice = array_search('local_socialcert/providerlimit_notice', $names, true);
+        $switch = array_search('local_socialcert/aiassistant_enabled', $names, true);
+        $this->assertNotFalse($notice, 'The settings page must carry the provider limit warning.');
+        $this->assertNotFalse($switch);
+        $this->assertSame($switch - 1, $notice, 'The warning must sit right above the assistant switch.');
+
+        $setting = $this->index_settings($page)['local_socialcert/providerlimit_notice'];
+        $this->assertInstanceOf(\admin_setting_description::class, $setting);
+
+        // Assistant on, provider limit off: red, with the warning text and the way to the provider.
+        set_config('aiassistant_enabled', 1, 'local_socialcert');
+        set_config('ratelimit_local_socialcert_enable', 0, 'aiprovider_datacurso');
+        $html = $setting->output_html('');
+        $this->assertStringContainsString('alert-danger', $html, 'Limit off: a red alert.');
+        $this->assertStringContainsString(get_string('providerlimit_missing_title', 'local_socialcert'), $html);
+        $this->assertStringContainsString(get_string('providerlimit_missing', 'local_socialcert'), $html);
+        $this->assertStringContainsString('/ai/provider/datacurso/admin/report_sections.php', $html);
+        $this->assertStringContainsString('tab=config', $html);
+        $this->assertStringNotContainsString('alert-success', $html);
+        $this->assertStringNotContainsString('alert-info', $html);
+
+        // Assistant on, provider limit on: green, naming the limit and the window.
+        set_config('ratelimit_local_socialcert_enable', 1, 'aiprovider_datacurso');
+        set_config('ratelimit_local_socialcert_limit', 7, 'aiprovider_datacurso');
+        set_config('ratelimit_local_socialcert_window', json_encode(['value' => 2, 'unit' => 'hours']), 'aiprovider_datacurso');
+        $html = $setting->output_html('');
+        $this->assertStringContainsString('alert-success', $html, 'Limit on: a green alert.');
+        $expected = get_string(
+            'providerlimit_active',
+            'local_socialcert',
+            \local_socialcert\local\provider_limit::describe(['limit' => 7, 'windowseconds' => 2 * HOURSECS])
+        );
+        $this->assertStringContainsString('7', $expected);
+        $this->assertStringContainsString($expected, $html);
+        $this->assertStringNotContainsString('alert-danger', $html);
+
+        // Assistant off: no credit can be spent, so neither alarm nor approval, an informational note.
+        set_config('aiassistant_enabled', 0, 'local_socialcert');
+        set_config('ratelimit_local_socialcert_enable', 0, 'aiprovider_datacurso');
+        $html = $setting->output_html('');
+        $this->assertStringContainsString('alert-info', $html, 'Assistant off: an informational note.');
+        $this->assertStringContainsString(get_string('providerlimit_assistantoff', 'local_socialcert'), $html);
+        $this->assertStringNotContainsString('alert-danger', $html);
+        $this->assertStringNotContainsString('alert-success', $html);
+
+        // The switch itself names the credit cost and the dependency on the provider limit, in every pack.
+        $english = get_string('aiassistant_enabled_desc', 'local_socialcert');
+        $this->assertStringContainsString('limit', $english);
+        $this->assertStringContainsString('credits', $english);
+        foreach (self::LANGUAGES as $lang) {
+            $this->assertStringContainsString(
+                'Datacurso',
+                get_string_manager()->get_string('aiassistant_enabled_desc', 'local_socialcert', null, $lang),
+                "The '{$lang}' description of the switch must name the provider."
+            );
+        }
+    }
 
     /**
      * Visible strings of the share panel that every language pack is expected to translate.
@@ -247,8 +326,15 @@ final class plugin_compliance_test extends \advanced_testcase {
     /**
      * MDL-INT-001: The three documented settings exist with their documented defaults.
      *
+     * The former "Enable AI" setting ('enableai') moved to the Datacurso AI provider, so the plugin
+     * settings page no longer declares it. The "AI requests limit per user per hour" setting
+     * ('airatelimit') of 1.1.7 was removed in 1.1.8: the usage limit is the per plugin limit of the
+     * provider.
+     *
      * Step 4 of the case (the AI card disappearing from the panel while the LinkedIn button stays
      * available) is a rendering concern and is covered by Behat, not here.
+     *
+     * @return void
      */
     public function test_global_settings_declare_the_documented_defaults(): void {
         $this->resetAfterTest();
@@ -257,7 +343,9 @@ final class plugin_compliance_test extends \advanced_testcase {
         $page = $this->get_plugin_settings_page();
         $settings = $this->index_settings($page);
 
-        $this->assertCount(3, $settings, 'The plugin must expose exactly three global settings.');
+        // The warning about the provider limit is a description, not a stored setting.
+        $saved = array_filter($settings, static fn(\admin_setting $setting): bool => empty($setting->nosave));
+        $this->assertCount(3, $saved, 'The plugin must expose exactly three global settings.');
 
         $this->assertArrayHasKey('local_socialcert/organizationid', $settings);
         $organizationid = $settings['local_socialcert/organizationid'];
@@ -269,13 +357,18 @@ final class plugin_compliance_test extends \advanced_testcase {
         $this->assertInstanceOf(\admin_setting_configtext::class, $organizationname);
         $this->assertSame('', $organizationname->get_defaultsetting());
 
-        $this->assertArrayHasKey('local_socialcert/enableai', $settings);
-        $enableai = $settings['local_socialcert/enableai'];
-        $this->assertInstanceOf(\admin_setting_configcheckbox::class, $enableai);
-        $this->assertEquals(1, $enableai->get_defaultsetting(), 'AI must be enabled out of the box.');
+        // The switch of the AI assistant only hides the AI card; it is enabled by default. Its name is
+        // not the former 'enableai', which the provider reads as the legacy state of the whole plugin.
+        $this->assertArrayHasKey('local_socialcert/aiassistant_enabled', $settings);
+        $aiassistant = $settings['local_socialcert/aiassistant_enabled'];
+        $this->assertInstanceOf(\admin_setting_configcheckbox::class, $aiassistant);
+        $this->assertSame('1', (string) $aiassistant->get_defaultsetting());
+
+        $this->assertArrayNotHasKey('local_socialcert/enableai', $settings, 'The provider keeps the AI switch.');
+        $this->assertArrayNotHasKey('local_socialcert/airatelimit', $settings, 'The provider keeps the usage limit.');
 
         // Every setting has a help text and none hides another one.
-        foreach (['organizationid', 'organizationname', 'enableai'] as $name) {
+        foreach (['organizationid', 'organizationname', 'aiassistant_enabled'] as $name) {
             $this->assertTrue(
                 get_string_manager()->string_exists($name . '_desc', 'local_socialcert'),
                 "Missing help text for the '{$name}' setting."
@@ -296,18 +389,20 @@ final class plugin_compliance_test extends \advanced_testcase {
     }
 
     /**
-     * MDL-INT-001: The three settings persist in the plugin configuration.
+     * MDL-INT-001: The two settings persist in the plugin configuration.
+     *
+     * The "Enable AI" switch is no longer a setting of the plugin: the Datacurso AI provider keeps it.
+     *
+     * @return void
      */
     public function test_global_settings_persist_their_values(): void {
         $this->resetAfterTest();
 
         set_config('organizationid', '1234567', 'local_socialcert');
         set_config('organizationname', 'Datacurso', 'local_socialcert');
-        set_config('enableai', 0, 'local_socialcert');
 
         $this->assertSame('1234567', get_config('local_socialcert', 'organizationid'));
         $this->assertSame('Datacurso', get_config('local_socialcert', 'organizationname'));
-        $this->assertSame('0', get_config('local_socialcert', 'enableai'));
     }
 
     /**
@@ -611,10 +706,11 @@ final class plugin_compliance_test extends \advanced_testcase {
      * here is the contract both event classes have to honour to be usable in the log reports.
      */
     public function test_user_actions_are_logged_as_events(): void {
+        $this->require_ai_provider();
         $this->resetAfterTest();
 
         set_config('organizationid', '12345', 'local_socialcert');
-        set_config('enableai', 1, 'local_socialcert');
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
 
         $scenario = $this->create_certificate_scenario();
         $this->setUser($scenario->student);
@@ -721,7 +817,7 @@ final class plugin_compliance_test extends \advanced_testcase {
         $this->resetAfterTest();
 
         set_config('organizationid', '12345', 'local_socialcert');
-        set_config('enableai', 1, 'local_socialcert');
+        set_config('plugin_enabled_local_socialcert', '1', 'aiprovider_datacurso');
 
         $scenario = $this->create_certificate_scenario();
         $studentroleid = (int) $DB->get_field('role', 'id', ['shortname' => 'student'], MUST_EXIST);

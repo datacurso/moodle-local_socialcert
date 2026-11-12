@@ -1,3 +1,67 @@
+## [1.1.9] - 2026-11-12
+
+**Compatibility note:** This version is compatible from **Moodle 5.0** to **Moodle 5.3**.
+
+### 🔧 Changed
+
+- The 1.1.6, 1.1.7 and 1.1.8 changes of the Moodle 4.5 line are brought to the Moodle 5.0–5.3 line
+- Require aiprovider_datacurso 2026110900, from the provider's Moodle 5.0–5.3 line
+- `$plugin->supported` narrowed to `[500, 503]` and `$plugin->requires` raised to Moodle 5.0, because Moodle 4.5 is served by `MOODLE_405_STABLE` and Workplace 4.5 by `WORKPLACE_405_STABLE`
+- README prerequisites list Moodle 5.0 to 5.3
+- Continuous integration runs on Jenkins only, against Moodle 5.3 (mariadb)
+
+## [1.1.8] - 2026-11-11
+
+**Compatibility note:** This version is compatible from **Moodle 4.5** to **Moodle 5.3**.
+
+This version removes the local usage limit of the AI assistant that 1.1.7 added for SOCIALCERT-SEC-002. The usage limit is the per plugin limit of the Datacurso AI Provider, which the provider enforces per user for every plugin that depends on it and which an administrator must enable; the plugin now reports, in its settings page and in the security checks of the site, whether that limit is on.
+
+### 🚀 Added
+
+- Notice **Usage limit of the AI assistant** in the plugin settings page, right above the **Enable AI assistant** switch: red, with a button to the provider configuration, while the assistant is on and the per plugin usage limit of the Datacurso AI Provider is off for this plugin; green with the limit and its window while both are on; an informational note while the assistant is off. It reads the provider state on every load of the page (`tests/plugin_compliance_test.php`)
+- Security check **Usage limit of the Share Certificate AI assistant** in Site administration > Reports > Security checks: error while the assistant is on and the provider limit is off, OK otherwise, with a link to the provider configuration (`tests/check/providerratelimit_test.php`)
+
+### 🔧 Changed
+
+- The description of the **Enable AI assistant** setting names the credit cost of each generation and the dependency on the provider usage limit, in the seven language packs
+
+### 🗑️ Removed
+
+- SOCIALCERT-SEC-002: the per user hourly limit of the web service `local_socialcert_get_ai_response` added in 1.1.7. Every call that passes the business checks of the function reaches the provider; the setting **AI requests limit per user per hour** (`airatelimit`) is removed from the settings page and deleted from the stored configuration on upgrade, together with the strings `airatelimit`, `airatelimit_desc`, `error_ratelimit_busy` and `error_ratelimit_exceeded`. A test pins that consecutive calls of one user are not refused by the plugin (`tests/external_ai_helper_no_local_limit_test.php`); the limit test of 1.1.7 is deleted. The message of the provider limit is still shown in the assistant card
+- The `.github` directory, with the GitHub Actions CI workflow: continuous integration runs on Jenkins, the only status check required to merge into `main`. The workflow guard test (`tests/ci/workflow_security_test.php`) stays and skips its file checks while no workflow exists
+
+## [1.1.7] - 2026-11-09
+
+**Compatibility note:** This version is compatible from **Moodle 4.5** to **Moodle 5.3**.
+
+This version closes the three findings of the Mindfree security report MFR-ZN624XJAL27LCFWPNQQYCB6T on version 1.1.4; versions 1.1.5 and 1.1.6 shipped before these fixes and do not include them. Each entry names the finding it closes and the automated test that backs it.
+
+### 🚀 Added
+
+- New setting **AI requests limit per user per hour** (`airatelimit`, default 10), with its description in the seven language packs and in the README
+
+### 🔧 Changed
+
+- The PHPUnit test of a missing provider licence key asserts the error code of the provider instead of its localized text, which changed in aiprovider_datacurso 1.6.4 (`tests/external_ai_helper_test.php`)
+
+### 🔒 Security
+
+- SOCIALCERT-SEC-001: remove the GitHub Actions workflow `moodle-release.yml`, which inserted the manually typed tag name into a shell step that had the moodle.org publishing token at hand. A guard test now fails if any workflow directly interpolates untrusted input into a `run` or `script` step, or exposes that token again; its docblock lists the indirect forms it does not cover (`tests/ci/workflow_security_test.php`). Publishing to the moodle.org directory becomes a manual step, described in `RELEASING.md`
+- SOCIALCERT-SEC-002: the web service `local_socialcert_get_ai_response` spends one unit of a per user hourly quota, taken from the Moodle AI rate limiter under a per user lock, after every business check passes and before the provider is contacted. Calls over the limit are refused with `error_ratelimit_exceeded` and a message that names the limit; a call that cannot take the lock is refused with `error_ratelimit_busy` without spending the quota, which the assistant card shows as its generic "try again later" message (`tests/external_ai_helper_ratelimit_test.php`)
+
+### 🐞 Fixed
+
+- SOCIALCERT-PRIV-001: the privacy metadata of the LinkedIn destination now declares the expiration date that the "Add to profile" link carries when the certificate expires. A test builds the link with and without an expiration date and checks that every parameter it carries is declared with its language string (`tests/privacy_provider_test.php`)
+
+## [1.1.6] - 2026-11-06
+
+### 🔧 Changed
+
+- Disable the whole plugin when it is disabled in the Datacurso AI provider (Site administration > AI > Datacurso plugins list): the share panel is not rendered and the web services (share state, share log and AI generation) reject every call with the provider message, which links an administrator to the provider plugins list
+- Move the former "Enable AI to suggest post text" switch (`enableai`) to the Datacurso AI provider, which copies its value as the state of the whole plugin; the setting and its strings are removed from the plugin and the setting is deleted on upgrade
+- Add the "Enable AI assistant" setting (`aiassistant_enabled`, on by default and switched on by the upgrade, so existing sites keep the assistant) to the plugin settings page: turning it off hides the AI card that writes the LinkedIn post, keeps the Share on LinkedIn option and makes the AI generation web service refuse with the new `aiassistantdisabled` error before contacting the AI service. It replaces the former `aidisabled` error, whose string is removed
+- Require aiprovider_datacurso 2026110400
+
 ## [1.1.5] - 2026-11-04
 
 **Compatibility note:** This version is compatible from **Moodle 4.5** to **Moodle 5.3**.
