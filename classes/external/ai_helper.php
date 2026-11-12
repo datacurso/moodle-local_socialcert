@@ -24,12 +24,14 @@
 
 namespace local_socialcert\external;
 
+use aiprovider_datacurso\local\plugin_settings;
 use core_external\external_api;
 use core_external\external_function_parameters;
 use core_external\external_single_structure;
 use core_external\external_value;
 use aiprovider_datacurso\httpclient\ai_services_api;
 use local_socialcert\event\ai_text_generated;
+use local_socialcert\local\ai_assistant;
 use local_socialcert\output\main_panel;
 
 /**
@@ -115,7 +117,20 @@ class ai_helper extends external_api {
             ['cmid' => $cmid, 'socialmedia' => $socialmedia]
         );
 
+        // A plugin disabled in the Datacurso AI provider is disabled as a whole. The guard runs
+        // outside the try block on purpose: the provider message (with the link to the plugins list
+        // for an administrator) is thrown as it is, like in every other function of the plugin.
+        plugin_settings::require_enabled('local_socialcert');
+
         try {
+            // The site setting of the assistant is checked before anything else, so no generation
+            // is requested (and no credits are spent) while an administrator keeps it off. It is
+            // reported like every other business rejection of the plugin: a controlled failure with
+            // its own errorcode and the localized message of the plugin.
+            if (!ai_assistant::is_enabled()) {
+                throw new \moodle_exception('aiassistantdisabled', 'local_socialcert');
+            }
+
             // The network travels inside the prompt, so it is checked against the allowlist before
             // anything else: an unknown network must never reach the service nor spend credits.
             if (!in_array($params['socialmedia'], self::SOCIAL_NETWORKS, true)) {
@@ -133,10 +148,6 @@ class ai_helper extends external_api {
             // the rules are: hiding the card in the interface does not stop a direct call to the web
             // service from spending credits.
             require_capability('local/socialcert:useaiassistant', $context);
-
-            if (!((int) get_config('local_socialcert', 'enableai'))) {
-                throw new \moodle_exception('aidisabled', 'local_socialcert');
-            }
 
             $cm = get_coursemodule_from_id('', $params['cmid'], 0, false, MUST_EXIST);
             if ($cm->modname !== 'customcert') {

@@ -47,10 +47,16 @@ if ($hassiteconfig) {
         PARAM_RAW_TRIMMED
     ));
 
+    // Tells whether the usage limit of the provider protects the AI credits, right above the switch
+    // of the assistant: the plugin applies no usage limit of its own.
+    $settings->add(new \local_socialcert\local\admin\provider_limit_notice());
+
+    // Only hides the AI assistant card; the share option stays. Not named 'enableai' on purpose: the
+    // Datacurso AI provider reads that former setting as the legacy state of the whole plugin.
     $settings->add(new admin_setting_configcheckbox(
-        'local_socialcert/enableai',
-        get_string('enableai', 'local_socialcert'),
-        get_string('enableai_desc', 'local_socialcert'),
+        'local_socialcert/aiassistant_enabled',
+        get_string('aiassistant_enabled', 'local_socialcert'),
+        get_string('aiassistant_enabled_desc', 'local_socialcert'),
         1
     ));
 }

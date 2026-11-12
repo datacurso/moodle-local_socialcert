@@ -24,6 +24,7 @@
 
 namespace local_socialcert;
 
+use aiprovider_datacurso\local\plugin_settings;
 use cm_info;
 use core\context\module as context_module;
 use core\hook\output\before_footer_html_generation;
@@ -70,6 +71,12 @@ class hook_callbacks {
             !isloggedin() ||
             isguestuser()
         ) {
+            return;
+        }
+
+        // Disabling the plugin in the Datacurso AI provider disables the whole plugin, so no panel is
+        // rendered at all: neither the share button nor the AI assistant.
+        if (!plugin_settings::is_enabled('local_socialcert')) {
             return;
         }
 

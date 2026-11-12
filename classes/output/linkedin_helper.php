@@ -49,6 +49,8 @@ class linkedin_helper {
      * - certUrl: Public verification URL (must be accessible without login).
      * - certId: Unique certificate id/code.
      *
+     * Optional: expirationYear & expirationMonth, sent only when an expiry time is supplied.
+     *
      * @param string   $certname        Display name of the certificate.
      * @param int      $issueunixtime   Issued timestamp (UNIX).
      * @param string   $certurl         Public verification URL (no auth).
