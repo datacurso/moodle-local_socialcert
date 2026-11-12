@@ -1,3 +1,13 @@
+## [1.1.9] - 2026-11-12
+
+**Compatibility note:** This version is compatible only with **Moodle 4.5**.
+
+### 🔧 Changed
+
+- `$plugin->supported` narrowed to `[405, 405]`: this branch (`MOODLE_405_STABLE`) serves Moodle 4.5 only and requires `aiprovider_datacurso` 2026110400 from the provider's Moodle 4.5 line. Moodle 5.0 to 5.3 are served by `MOODLE_503_STABLE` and Moodle Workplace 4.5 by `WORKPLACE_405_STABLE`
+- The README prerequisites list Moodle 4.5 only
+- CI runs on Jenkins only, against Moodle 4.5 (mariadb and pgsql)
+
 ## [1.1.8] - 2026-11-11
 
 **Compatibility note:** This version is compatible from **Moodle 4.5** to **Moodle 5.3**.
